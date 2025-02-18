@@ -60,18 +60,16 @@ def search_dictionary(query):
         }
         
         for label, field in fields.items():
-            # Use the "or" operator to handle None values gracefully.
-            field_value = row[field] or "N/A"  # Show "N/A" if the field is None
-
-            html_output += f"""
-            <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">{label}:</strong>
-                <span>{field_value}</span>
-            </div>
-            """
-
+            if row[field]:
+                html_output += f"""
+                <div style="margin-bottom: 8px;">
+                    <strong style="color: #34495e;">{label}:</strong>
+                    <span>{row[field]}</span>
+                </div>
+                """
+        
         html_output += "</div></div>"
-
+    
     return html_output
 
 # Create Gradio interface
@@ -81,23 +79,22 @@ with gr.Blocks(css="footer {display: none !important}") as iface:
             <h1 style="color: #2c3e50; margin-bottom: 1rem;">Amazigh Dictionary</h1>
         </div>
     """)
-
+    
     with gr.Row():
         input_text = gr.Textbox(
             label="Search",
             placeholder="Enter a word to search...",
             lines=1
         )
-
+    
     output_html = gr.HTML()
-
+    
     input_text.change(
         fn=search_dictionary,
         inputs=input_text,
         outputs=output_html,
         api_name="search"
     )
-
 
 if __name__ == "__main__":
     iface.launch()
