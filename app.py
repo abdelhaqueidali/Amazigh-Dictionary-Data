@@ -135,22 +135,24 @@ def search_dictionary(query, language, exact_match):
         msmun_ar_r_m_results = []
 
 
-    elif language == "Arabic":
+        elif language == "Arabic":
         normalized_query_arabic = normalize_general_text(query) # Using general for arabic normalization
         search_term_arabic_exact = normalized_query_arabic if exact_match else f"{normalized_query_arabic}%"
         search_term_arabic_contain = normalized_query_arabic if exact_match else f"%{normalized_query_arabic}%"
 
-        tawalt_results = search_tawalt(search_term_arabic_exact, search_term_arabic_contain, "", "", 50, exact_match, arabic_only=True) # Arabic only search in tawalt
-        remaining_results = 50 - len(tawalt_results)
-        dglai14_results = []
-        tawalt_fr_results = []
-        eng_results = []
+        dglai14_results = search_dglai14(search_term_arabic_exact, search_term_arabic_contain, "", "", exact_match) # Include dglai14 search
+        remaining_results = 50 - len(dglai14_results)
+
+        tawalt_results = search_tawalt(search_term_arabic_exact, search_term_arabic_contain, "", "", remaining_results, exact_match, arabic_only=True) # Arabic only search in tawalt
+        remaining_results -= len(tawalt_results)
+        tawalt_fr_results = [] # No French results in Arabic specific search
+        eng_results = [] # No English results in Arabic specific search
         msmun_ar_m_r_results = search_msmun_ar_m_r(search_term_arabic_exact, search_term_arabic_contain, "", "", remaining_results, exact_match, arabic_only=True)
         remaining_results -= len(msmun_ar_m_r_results)
         msmun_ar_r_m_results = search_msmun_ar_r_m(search_term_arabic_exact, search_term_arabic_contain, "", "", remaining_results, exact_match, arabic_only=True)
         remaining_results -= len(msmun_ar_r_m_results)
-        msmun_fr_m_results = []
-        msmun_fr_r_results = []
+        msmun_fr_m_results = [] # No French results in Arabic specific search
+        msmun_fr_r_results = [] # No French results in Arabic specific search
 
     elif language == "English": # Add English Language Search
         normalized_query_english = normalize_english_text(query)
