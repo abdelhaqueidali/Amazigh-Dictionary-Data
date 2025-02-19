@@ -1,11 +1,28 @@
 import gradio as gr
 import sqlite3
 from pathlib import Path
+import unicodedata
 
 def get_db_connection():
     conn = sqlite3.connect('dglai14.db')
     conn.row_factory = sqlite3.Row
     return conn
+
+def normalize_french_text(text):
+    """Normalize French text by removing diacritics and converting to lower case."""
+    if not text:
+        return text
+    normalized_text = ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
+    return normalized_text.lower()
+
+def normalize_arabic_text(text):
+    """Normalize Arabic text by removing diacritics and unifying similar characters."""
+    if not text:
+        return text
+    text = text.replace("أ", "ا").replace("إ", "ا").replace("آ", "ا") # unify alif forms
+    # Add more replacements if needed for other similar chars
+    normalized_text = ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn') # remove diacritics
+    return normalized_text
 
 def search_dictionary(query):
     if not query or len(query.strip()) < 1:
@@ -14,33 +31,45 @@ def search_dictionary(query):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    start_search_term = f"{query}%"
-    contain_search_term = f"%{query}%"
+    normalized_query_french = normalize_french_text(query)
+    normalized_query_arabic = normalize_arabic_text(query)
+    normalized_query_general = normalized_query_arabic # Use arabic normalization for general search as it covers more cases
 
-    # Query for results starting with the search term (in any field)
+    start_search_term_french = f"{normalized_query_french}%"
+    contain_search_term_french = f"%{normalized_query_french}%"
+    start_search_term_arabic = f"{normalized_query_arabic}%"
+    contain_search_term_arabic = f"%{normalized_query_arabic}%"
+    start_search_term_general = f"{normalized_query_general}%"
+    contain_search_term_general = f"%{normalized_query_general}%"
+
+
+    # Query for results starting with the search term (in any field) - using general normalization for wider search
     cursor.execute("""
         SELECT lexie.*, sens.sens_fr, sens.sens_ar
         FROM lexie
         LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
-        WHERE lexie LIKE ?
-        OR api LIKE ?
-        OR remarque LIKE ?
-        OR variante LIKE ?
-        OR cg LIKE ?
-        OR eadata LIKE ?
-        OR pldata LIKE ?
-        OR acc LIKE ?
-        OR acc_neg LIKE ?
-        OR inacc LIKE ?
-        OR fel LIKE ?
-        OR fea LIKE ?
-        OR fpel LIKE ?
-        OR fpea LIKE ?
-        ORDER BY lexie.id_lexie  -- Order by lexie.id_lexie to group same words together
+        WHERE lower(lexie) LIKE ?
+        OR lower(api) LIKE ?
+        OR lower(remarque) LIKE ?
+        OR lower(variante) LIKE ?
+        OR lower(cg) LIKE ?
+        OR lower(eadata) LIKE ?
+        OR lower(pldata) LIKE ?
+        OR lower(acc) LIKE ?
+        OR lower(acc_neg) LIKE ?
+        OR lower(inacc) LIKE ?
+        OR lower(fel) LIKE ?
+        OR lower(fea) LIKE ?
+        OR lower(fpel) LIKE ?
+        OR lower(fpea) LIKE ?
+        OR lower(sens_fr) LIKE ?
+        OR lower(sens_ar) LIKE ?
+        ORDER BY lexie.id_lexie
         LIMIT 50
-    """, (start_search_term, start_search_term, start_search_term, start_search_term, start_search_term,
-          start_search_term, start_search_term, start_search_term, start_search_term, start_search_term,
-          start_search_term, start_search_term, start_search_term, start_search_term))
+    """, (start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
+          start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
+          start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
+          start_search_term_french, start_search_term_arabic)) # Apply french and arabic normalization to respective sens columns
     start_results = cursor.fetchall()
 
     # Query for results containing the search term (in any field), but NOT starting with in lexie field
@@ -48,27 +77,30 @@ def search_dictionary(query):
         SELECT lexie.*, sens.sens_fr, sens.sens_ar
         FROM lexie
         LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
-        WHERE (lexie LIKE ?
-        OR api LIKE ?
-        OR remarque LIKE ?
-        OR variante LIKE ?
-        OR cg LIKE ?
-        OR eadata LIKE ?
-        OR pldata LIKE ?
-        OR acc LIKE ?
-        OR acc_neg LIKE ?
-        OR inacc LIKE ?
-        OR fel LIKE ?
-        OR fea LIKE ?
-        OR fpel LIKE ?
-        OR fpea LIKE ?)
-        AND NOT lexie LIKE ?  -- Exclude only if lexie starts with the search term
-        ORDER BY lexie.id_lexie  -- Order by lexie.id_lexie to group same words together
+        WHERE (lower(lexie) LIKE ?
+        OR lower(api) LIKE ?
+        OR lower(remarque) LIKE ?
+        OR lower(variante) LIKE ?
+        OR lower(cg) LIKE ?
+        OR lower(eadata) LIKE ?
+        OR lower(pldata) LIKE ?
+        OR lower(acc) LIKE ?
+        OR lower(acc_neg) LIKE ?
+        OR lower(inacc) LIKE ?
+        OR lower(fel) LIKE ?
+        OR lower(fea) LIKE ?
+        OR lower(fpel) LIKE ?
+        OR lower(fpea) LIKE ?
+        OR lower(sens_fr) LIKE ?
+        OR lower(sens_ar) LIKE ?)
+        AND NOT lower(lexie) LIKE ?
+        ORDER BY lexie.id_lexie
         LIMIT 50
-    """, (contain_search_term, contain_search_term, contain_search_term, contain_search_term, contain_search_term,
-          contain_search_term, contain_search_term, contain_search_term, contain_search_term, contain_search_term,
-          contain_search_term, contain_search_term, contain_search_term, contain_search_term,
-          start_search_term)) # Using start_search_term for the NOT lexie LIKE condition
+    """, (contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
+          contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
+          contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
+          contain_search_term_french, contain_search_term_arabic,
+          start_search_term_general)) # Using general normalization for NOT lexie LIKE condition and french/arabic for sens columns
     contain_results = cursor.fetchall()
 
     conn.close()
@@ -98,15 +130,15 @@ def search_dictionary(query):
                 'fea': row['fea'],
                 'fpel': row['fpel'],
                 'fpea': row['fpea'],
-                'sens_frs': [],  # List to store French translations
-                'sens_ars': []   # List to store Arabic translations
+                'sens_frs': [],
+                'sens_ars': []
             }
         aggregated_results[lexie_id]['sens_frs'].append(row['sens_fr'])
         aggregated_results[lexie_id]['sens_ars'].append(row['sens_ar'])
 
     # Format aggregated results as HTML
     html_output = ""
-    for lexie_id, data in list(aggregated_results.items())[:50]: # Limit to 50 aggregated results
+    for lexie_id, data in list(aggregated_results.items())[:50]:
         html_output += f"""
         <div style="background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">
@@ -116,7 +148,6 @@ def search_dictionary(query):
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px;">
         """
 
-        # Add fields if they exist (excluding translations for now)
         fields = {
             'Transcription': 'api',
             'Notes': 'remarque',
@@ -141,9 +172,8 @@ def search_dictionary(query):
                 </div>
                 """
 
-        # Display translations with commas
-        french_translations = ", ".join(filter(None, set(data['sens_frs']))) # Remove None and duplicates, then join
-        arabic_translations = ", ".join(filter(None, set(data['sens_ars'])))  # Remove None and duplicates, then join
+        french_translations = ", ".join(filter(None, set(data['sens_frs'])))
+        arabic_translations = ", ".join(filter(None, set(data['sens_ars'])))
 
         if french_translations:
             html_output += f"""
