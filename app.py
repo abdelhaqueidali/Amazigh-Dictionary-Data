@@ -24,8 +24,19 @@ def search_dictionary(query):
         OR remarque LIKE ?
         OR variante LIKE ?
         OR cg LIKE ?
+        OR eadata LIKE ?  -- Added Construct State to search
+        OR pldata LIKE ?  -- Added Plural to search
+        OR acc LIKE ?     -- Added Accomplished to search
+        OR acc_neg LIKE ? -- Added Negative Accomplished to search
+        OR inacc LIKE ?   -- Added Unaccomplished to search
+        OR fel LIKE ?     -- Added Feminine to search
+        OR fea LIKE ?     -- Added Feminine Construct to search
+        OR fpel LIKE ?    -- Added Feminine Plural to search
+        OR fpea LIKE ?    -- Added Feminine Plural Construct to search
         LIMIT 50
-    """, (search_term, search_term, search_term, search_term, search_term))
+    """, (search_term, search_term, search_term, search_term, search_term,
+          search_term, search_term, search_term, search_term, search_term,
+          search_term, search_term, search_term, search_term))
 
     results = cursor.fetchall()
     conn.close()
