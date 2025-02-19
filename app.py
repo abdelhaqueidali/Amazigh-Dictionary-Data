@@ -36,7 +36,7 @@ def search_dictionary(query):
         OR fea LIKE ?
         OR fpel LIKE ?
         OR fpea LIKE ?
-        GROUP BY lexie.id_lexie  -- Group by lexie.id_lexie to remove duplicates
+        GROUP BY lexie.id_lexie, sens.sens_fr, sens.sens_ar  -- Group by lexie.id_lexie AND sens columns
         LIMIT 50
     """, (start_search_term, start_search_term, start_search_term, start_search_term, start_search_term,
           start_search_term, start_search_term, start_search_term, start_search_term, start_search_term,
@@ -63,7 +63,7 @@ def search_dictionary(query):
         OR fpel LIKE ?
         OR fpea LIKE ?)
         AND NOT lexie LIKE ?  -- Exclude only if lexie starts with the search term
-        GROUP BY lexie.id_lexie  -- Group by lexie.id_lexie to remove duplicates
+        GROUP BY lexie.id_lexie, sens.sens_fr, sens.sens_ar  -- Group by lexie.id_lexie AND sens columns
         LIMIT 50
     """, (contain_search_term, contain_search_term, contain_search_term, contain_search_term, contain_search_term,
           contain_search_term, contain_search_term, contain_search_term, contain_search_term, contain_search_term,
@@ -74,20 +74,13 @@ def search_dictionary(query):
     conn.close()
 
     results = list(start_results) + list(contain_results)
-    unique_results = []
-    seen_lexie_ids = set()
-    for row in results:
-        if row['id_lexie'] not in seen_lexie_ids:
-            unique_results.append(row)
-            seen_lexie_ids.add(row['id_lexie'])
 
-
-    if not unique_results:
+    if not results:
         return "No results found"
 
     # Format results as HTML
     html_output = ""
-    for row in unique_results[:50]: # Limit to 50 after combining and deduplication
+    for row in results[:50]: # Limit to 50 after combining
         html_output += f"""
         <div style="background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">
