@@ -102,18 +102,25 @@ def search_dictionary(query, language, exact_match):
         search_term_amazigh_exact = normalized_query_amazigh if exact_match else f"{normalized_query_amazigh}%"
         search_term_amazigh_contain = normalized_query_amazigh if exact_match else f"%{normalized_query_amazigh}%"
 
-        dglai14_results = search_dglai14(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, exact_match)
+        # Include search for feminine forms by removing 'ⵜ' prefix for Amazigh search
+        search_term_amazigh_exact_no_fem = search_term_amazigh_exact.replace("ⵜ", "", 1) if search_term_amazigh_exact.startswith("ⵜ") else search_term_amazigh_exact
+        search_term_amazigh_contain_no_fem = search_term_amazigh_contain.replace("ⵜ", "", 1) if search_term_amazigh_contain.startswith("ⵜ") else search_term_amazigh_contain
+
+
+        dglai14_results = search_dglai14(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact_no_fem, search_term_amazigh_contain_no_fem, exact_match) # Pass both with and without feminine t
         remaining_results = 50 - len(dglai14_results)
-        tawalt_fr_results = search_tawalt_fr(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, remaining_results, exact_match)
+        tawalt_fr_results = search_tawalt_fr(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact_no_fem, search_term_amazigh_contain_no_fem, remaining_results, exact_match) # Pass both with and without feminine t
         remaining_results -= len(tawalt_fr_results)
-        tawalt_results = search_tawalt(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, remaining_results, exact_match)
+        tawalt_results = search_tawalt(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact_no_fem, search_term_amazigh_contain_no_fem, remaining_results, exact_match) # Pass both with and without feminine t
         remaining_results -= len(tawalt_results)
-        eng_results = search_eng(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, remaining_results, exact_match)
+        eng_results = search_eng(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact_no_fem, search_term_amazigh_contain_no_fem, remaining_results, exact_match) # Pass both with and without feminine t
         remaining_results -= len(eng_results)
-        msmun_fr_m_results = []
-        msmun_fr_r_results = []
-        msmun_ar_m_r_results = []
-        msmun_ar_r_m_results = []
+        msmun_fr_m_results = search_msmun_fr_m(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact_no_fem, search_term_amazigh_contain_no_fem, remaining_results, exact_match) # Pass both with and without feminine t
+        remaining_results -= len(msmun_fr_m_results)
+        msmun_fr_r_results = search_msmun_fr_r(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact_no_fem, search_term_amazigh_contain_no_fem, remaining_results, exact_match) # Pass both with and without feminine t
+        remaining_results -= len(msmun_fr_r_results)
+        msmun_ar_m_r_results = search_msmun_ar_m_r(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact_no_fem, search_term_amazigh_contain_no_fem, remaining_results, exact_match) # Pass both with and without feminine t
+        msmun_ar_r_m_results = search_msmun_ar_r_m(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact_no_fem, search_term_amazigh_contain_no_fem, remaining_results, exact_match) # Pass both with and without feminine t
 
 
     elif language == "French":
@@ -156,7 +163,8 @@ def search_dictionary(query, language, exact_match):
 
         tawalt_results = search_tawalt(search_term_arabic_exact, search_term_arabic_contain, "", "", 50, exact_match, arabic_only=True) # Arabic only search in tawalt
         remaining_results = 50 - len(tawalt_results)
-        dglai14_results = []
+        dglai14_results = search_dglai14(search_term_arabic_exact, search_term_arabic_contain, "", "", remaining_results, exact_match, arabic_only=True) # Arabic only search in dglai14
+        remaining_results -= len(dglai14_results)
         tawalt_fr_results = []
         eng_results = []
         msmun_ar_m_r_results = search_msmun_ar_m_r(search_term_arabic_exact, search_term_arabic_contain, "", "", remaining_results, exact_match, arabic_only=True)
@@ -218,7 +226,7 @@ def search_dictionary(query, language, exact_match):
     return html_output
 
 
-def search_dglai14(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, exact_match):
+def search_dglai14(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, exact_match, arabic_only=False): # added arabic_only
     conn = get_db_connection('dglai14.db')
     cursor = conn.cursor()
 
@@ -228,75 +236,151 @@ def search_dglai14(start_search_term_general, contain_search_term_general,start_
     like_op_start = "=" if exact_match else "LIKE"
     like_op_contain = "=" if exact_match else "LIKE"
 
-    print(f"  dglai14 - Start Search Term General: '{start_search_term_general}', Contain: '{contain_search_term_general}', Amazigh Start: '{start_search_term_amazigh}', Contain: '{contain_search_term_amazigh}', Exact: {exact_match}") # Debug print
+    print(f"  dglai14 - Start Search Term General: '{start_search_term_general}', Contain: '{contain_search_term_general}', Amazigh Start: '{start_search_term_amazigh}', Contain: '{contain_search_term_amazigh}', Exact: {exact_match}, Arabic Only: {arabic_only}") # Debug print
+
+    query_clauses_start = []
+    query_clauses_contain = []
+    params_start = []
+    params_contain = []
+
+    if not arabic_only: # Conditionally include Amazigh fields if not arabic_only
+        query_clauses_start.extend([
+            f"(NORMALIZE_AMAZIGH(lexie) {like_op_start} ?)",
+            f"(NORMALIZE_AMAZIGH(remarque) {like_op_start} ?)",
+            f"(NORMALIZE_AMAZIGH(variante) {like_op_start} ?)",
+            f"(NORMALIZE_AMAZIGH(eadata) {like_op_start} ?)",
+            f"(NORMALIZE_AMAZIGH(pldata) {like_op_start} ?)",
+            f"(NORMALIZE_AMAZIGH(fel) {like_op_start} ?)", # Added feminine forms to search
+            f"(NORMALIZE_AMAZIGH(fea) {like_op_start} ?)", # Added feminine forms to search
+            f"(NORMALIZE_AMAZIGH(fpel) {like_op_start} ?)", # Added feminine forms to search
+            f"(NORMALIZE_AMAZIGH(fpea) {like_op_start} ?)", # Added feminine forms to search
+            f"(NORMALIZE_AMAZIGH(expression.exp_amz) {like_op_start} ?)"
+        ])
+        params_start.extend([
+            start_search_term_amazigh,
+            start_search_term_amazigh,
+            start_search_term_amazigh,
+            start_search_term_amazigh,
+            start_search_term_amazigh,
+            start_search_term_amazigh,
+            start_search_term_amazigh,
+            start_search_term_amazigh,
+            start_search_term_amazigh,
+            start_search_term_amazigh
+        ])
+        query_clauses_contain.extend([
+            f"(NORMALIZE_AMAZIGH(lexie) {like_op_contain} ?)",
+            f"(NORMALIZE_AMAZIGH(remarque) {like_op_contain} ?)",
+            f"(NORMALIZE_AMAZIGH(variante) {like_op_contain} ?)",
+            f"(NORMALIZE_AMAZIGH(eadata) {like_op_contain} ?)",
+            f"(NORMALIZE_AMAZIGH(pldata) {like_op_contain} ?)",
+            f"(NORMALIZE_AMAZIGH(fel) {like_op_contain} ?)", # Added feminine forms to search
+            f"(NORMALIZE_AMAZIGH(fea) {like_op_contain} ?)", # Added feminine forms to search
+            f"(NORMALIZE_AMAZIGH(fpel) {like_op_contain} ?)", # Added feminine forms to search
+            f"(NORMALIZE_AMAZIGH(fpea) {like_op_contain} ?)", # Added feminine forms to search
+            f"(NORMALIZE_AMAZIGH(expression.exp_amz) {like_op_contain} ?)"
+        ])
+        params_contain.extend([
+            contain_search_term_amazigh,
+            contain_search_term_amazigh,
+            contain_search_term_amazigh,
+            contain_search_term_amazigh,
+            contain_search_term_amazigh,
+            contain_search_term_amazigh,
+            contain_search_term_amazigh,
+            contain_search_term_amazigh,
+            contain_search_term_amazigh,
+            contain_search_term_amazigh
+        ])
+
+    query_clauses_start.extend([ # Always include general fields
+        f"(REMOVE_DIACRITICS(LOWER(cg)) {like_op_start} ?)",
+        f"(REMOVE_DIACRITICS(LOWER(acc)) {like_op_start} ?)",
+        f"(REMOVE_DIACRITICS(LOWER(acc_neg)) {like_op_start} ?)",
+        f"(REMOVE_DIACRITICS(LOWER(inacc)) {like_op_start} ?)",
+        f"(REMOVE_DIACRITICS(LOWER(fea)) {like_op_start} ?)", # Added feminine forms to search (typo in original code: was fel twice)
+        f"(REMOVE_DIACRITICS(LOWER(fpel)) {like_op_start} ?)",
+        f"(REMOVE_DIACRITICS(LOWER(fpea)) {like_op_start} ?)",
+        f"(REMOVE_DIACRITICS(LOWER(sens_ar)) {like_op_start} ?)",
+        f"(REMOVE_DIACRITICS(LOWER(expression.exp_ar)) {like_op_start} ?)"
+    ])
+    params_start.extend([
+        start_search_term_general,
+        start_search_term_general,
+        start_search_term_general,
+        start_search_term_general,
+        start_search_term_general,
+        start_search_term_general,
+        start_search_term_general,
+        start_search_term_general,
+        start_search_term_general
+    ])
+    query_clauses_contain.extend([ # Always include general fields
+        f"(REMOVE_DIACRITICS(LOWER(cg)) {like_op_contain} ?)",
+        f"(REMOVE_DIACRITICS(LOWER(acc)) {like_op_contain} ?)",
+        f"(REMOVE_DIACRITICS(LOWER(acc_neg)) {like_op_contain} ?)",
+        f"(REMOVE_DIACRITICS(LOWER(inacc)) {like_op_contain} ?)",
+        f"(REMOVE_DIACRITICS(LOWER(fea)) {like_op_contain} ?)", # Added feminine forms to search (typo in original code: was fel twice)
+        f"(REMOVE_DIACRITICS(LOWER(fpel)) {like_op_contain} ?)",
+        f"(REMOVE_DIACRITICS(LOWER(fpea)) {like_op_contain} ?)",
+        f"(REMOVE_DIACRITICS(LOWER(sens_ar)) {like_op_contain} ?)",
+        f"(REMOVE_DIACRITICS(LOWER(expression.exp_ar)) {like_op_contain} ?)"
+    ])
+    params_contain.extend([
+        contain_search_term_general,
+        contain_search_term_general,
+        contain_search_term_general,
+        contain_search_term_general,
+        contain_search_term_general,
+        contain_search_term_general,
+        contain_search_term_general,
+        contain_search_term_general,
+        contain_search_term_general
+    ])
+
+
+    start_query_where = " OR ".join(query_clauses_start)
+    contain_query_where = " OR ".join(query_clauses_contain)
+
 
     # Start Search (dglai14)
-    cursor.execute(f"""
+    query_start = f"""
         SELECT lexie.*, sens.sens_fr, sens.sens_ar,
                expression.exp_amz, expression.exp_fr, expression.exp_ar
         FROM lexie
         LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
         LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
         WHERE
-        (NORMALIZE_AMAZIGH(lexie) {like_op_start} ?)
-        OR (NORMALIZE_AMAZIGH(remarque) {like_op_start} ?)
-        OR (NORMALIZE_AMAZIGH(variante) {like_op_start} ?)
-        OR (REMOVE_DIACRITICS(LOWER(cg)) {like_op_start} ?)
-        OR (NORMALIZE_AMAZIGH(eadata) {like_op_start} ?)
-        OR (NORMALIZE_AMAZIGH(pldata) {like_op_start} ?)
-        OR (REMOVE_DIACRITICS(LOWER(acc)) {like_op_start} ?)
-        OR (REMOVE_DIACRITICS(LOWER(acc_neg)) {like_op_start} ?)
-        OR (REMOVE_DIACRITICS(LOWER(inacc)) {like_op_start} ?)
-        OR (REMOVE_DIACRITICS(LOWER(fel)) {like_op_start} ?)
-        OR (REMOVE_DIACRITICS(LOWER(fea)) {like_op_start} ?)
-        OR (REMOVE_diacritics(LOWER(fpel)) {like_op_start} ?)
-        OR (REMOVE_DIACRITICS(LOWER(fpea)) {like_op_start} ?)
-        OR (REMOVE_DIACRITICS(LOWER(sens_ar)) {like_op_start} ?)
-        OR (NORMALIZE_AMAZIGH(expression.exp_amz) {like_op_start} ?)
-        OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) {like_op_start} ?)
+        ({start_query_where})
 
         ORDER BY lexie.id_lexie
         LIMIT 50
-    """, (start_search_term_amazigh, start_search_term_amazigh, start_search_term_amazigh, start_search_term_general,
-          start_search_term_amazigh, start_search_term_amazigh, start_search_term_general, start_search_term_general, start_search_term_general,
-          start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
-          start_search_term_general, start_search_term_amazigh, start_search_term_general))
+    """
+    print("dglai14 Start Query:", query_start) # Debugging query
+    print("dglai14 Start Params:", tuple(params_start)) # Debugging params
+    cursor.execute(query_start, tuple(params_start))
+
+
     start_results = cursor.fetchall()
     print(f"  dglai14 - Start Results Count: {len(start_results)}") # Debug print
 
     # Contain Search (dglai14)
-    cursor.execute(f"""
+    query_contain = f"""
         SELECT lexie.*, sens.sens_fr, sens.sens_ar,
                expression.exp_amz, expression.exp_fr, expression.exp_ar
         FROM lexie
         LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
         LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
         WHERE (
-        (NORMALIZE_AMAZIGH(lexie) {like_op_contain} ?)
-        OR (NORMALIZE_AMAZIGH(remarque) {like_op_contain} ?)
-        OR (NORMALIZE_AMAZIGH(variante) {like_op_contain} ?)
-        OR (REMOVE_DIACRITICS(LOWER(cg)) {like_op_contain} ?)
-        OR (NORMALIZE_AMAZIGH(eadata) {like_op_contain} ?)
-        OR (NORMALIZE_AMAZIGH(pldata) {like_op_contain} ?)
-        OR (REMOVE_DIACRITICS(LOWER(acc)) {like_op_contain} ?)
-        OR (REMOVE_DIACRITICS(LOWER(acc_neg)) {like_op_contain} ?)
-        OR (REMOVE_DIACRITICS(LOWER(inacc)) {like_op_contain} ?)
-        OR (REMOVE_DIACRITICS(LOWER(fel)) {like_op_contain} ?)
-        OR (REMOVE_DIACRITICS(LOWER(fea)) {like_op_contain} ?)
-        OR (REMOVE_DIACRITICS(LOWER(fpel)) {like_op_contain} ?)
-        OR (REMOVE_DIACRITICS(LOWER(fpea)) {like_op_contain} ?)
-        OR (REMOVE_DIACRITICS(LOWER(sens_ar)) {like_op_contain} ?)
-        OR (NORMALIZE_AMAZIGH(expression.exp_amz) {like_op_contain} ?)
-        OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) {like_op_contain} ?)
+        ({contain_query_where})
         )
         AND NOT (NORMALIZE_AMAZIGH(lexie) {like_op_start} ?)
         ORDER BY lexie.id_lexie
         LIMIT 50
-    """, (contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_general,
-          contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_general, contain_search_term_general, contain_search_term_general,
-          contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
-          contain_search_term_general, contain_search_term_amazigh, contain_search_term_general,
-          start_search_term_amazigh))  # Use start_search_term_amazigh for the NOT LIKE part
+    """
+    print("dglai14 Contain Query:", query_contain) # Debugging query
+    print("dglai14 Contain Params:", tuple(params_contain + [start_search_term_amazigh])) # Debugging params
+    cursor.execute(query_contain, tuple(params_contain + [start_search_term_amazigh]))  # Use start_search_term_amazigh for the NOT LIKE part
     contain_results = cursor.fetchall()
     print(f"  dglai14 - Contain Results Count: {len(contain_results)}") # Debug print
     conn.close()
@@ -339,7 +423,7 @@ def search_tawalt_fr(start_search_term_general, contain_search_term_general, sta
         SELECT *
         FROM words
         WHERE
-        {start_query_where}
+        ({start_query_where})
         ORDER BY _id
         LIMIT ?
     """, tuple(params_start + [limit]))
@@ -351,7 +435,7 @@ def search_tawalt_fr(start_search_term_general, contain_search_term_general, sta
         SELECT *
         FROM words
         WHERE (
-        {contain_query_where}
+        ({contain_query_where})
         )
         AND NOT (NORMALIZE_AMAZIGH(tifinagh) {like_op_start} ?)
         ORDER BY _id
@@ -420,7 +504,7 @@ def search_tawalt(start_search_term_general, contain_search_term_general,start_s
         SELECT *
         FROM words
         WHERE
-        {start_query_where}
+        ({start_query_where})
         ORDER BY _id
         LIMIT ?
     """, tuple(params_start + [limit]))
@@ -432,7 +516,7 @@ def search_tawalt(start_search_term_general, contain_search_term_general,start_s
         SELECT *
         FROM words
         WHERE (
-        {contain_query_where}
+        ({contain_query_where})
         )
         AND NOT (NORMALIZE_AMAZIGH(tifinagh) {like_op_start} ?)
         ORDER BY _id
@@ -523,7 +607,7 @@ def search_eng(start_search_term_general, contain_search_term_general, start_sea
         FROM Dictionary_Amazigh_full AS da
         LEFT JOIN Dictionary_English_Amazih_links AS dea ON da.id_lexie = dea.id_lexie
         WHERE (
-            {start_query_where}
+            ({start_query_where})
         )
         ORDER BY da.id_lexie
         LIMIT ?
@@ -537,7 +621,7 @@ def search_eng(start_search_term_general, contain_search_term_general, start_sea
         FROM Dictionary_Amazigh_full AS da
         LEFT JOIN Dictionary_English_Amazih_links AS dea ON da.id_lexie = dea.id_lexie
         WHERE (
-            {contain_query_where}
+            ({contain_query_where})
         )
         AND NOT NORMALIZE_AMAZIGH(da.lexie) {like_op_start} ?
         ORDER BY da.id_lexie
@@ -583,7 +667,7 @@ def search_msmun_fr_m(start_search_term_general, contain_search_term_general, st
         SELECT *
         FROM table_m
         WHERE (
-            {start_query_where}
+            ({start_query_where})
         )
         ORDER BY _id
         LIMIT ?
@@ -595,7 +679,7 @@ def search_msmun_fr_m(start_search_term_general, contain_search_term_general, st
         SELECT *
         FROM table_m
         WHERE (
-            {contain_query_where}
+            ({contain_query_where})
         )
         AND NOT NORMALIZE_AMAZIGH(word) {like_op_start} ?
         ORDER BY _id
@@ -640,7 +724,7 @@ def search_msmun_fr_r(start_search_term_general, contain_search_term_general, st
         SELECT *
         FROM table_r
         WHERE (
-            {start_query_where}
+            ({start_query_where})
         )
         ORDER BY _id
         LIMIT ?
@@ -652,7 +736,7 @@ def search_msmun_fr_r(start_search_term_general, contain_search_term_general, st
         SELECT *
         FROM table_r
         WHERE (
-            {contain_query_where}
+            ({contain_query_where})
         )
         AND NOT NORMALIZE_FRENCH(word) {like_op_start} ?
         ORDER BY _id
@@ -697,7 +781,7 @@ def search_msmun_ar_m_r(start_search_term_general, contain_search_term_general, 
         SELECT *
         FROM table_m_r
         WHERE (
-            {start_query_where}
+            ({start_query_where})
         )
         ORDER BY _id
         LIMIT ?
@@ -709,7 +793,7 @@ def search_msmun_ar_m_r(start_search_term_general, contain_search_term_general, 
         SELECT *
         FROM table_m_r
         WHERE (
-            {contain_query_where}
+            ({contain_query_where})
         )
         AND NOT NORMALIZE_AMAZIGH(word) {like_op_start} ?
         ORDER BY _id
@@ -753,7 +837,7 @@ def search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, 
         SELECT *
         FROM table_r_m
         WHERE (
-            {start_query_where}
+            ({start_query_where})
         )
         ORDER BY _id
         LIMIT ?
@@ -765,7 +849,7 @@ def search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, 
         SELECT *
         FROM table_r_m
         WHERE (
-            {contain_query_where}
+            ({contain_query_where})
         )
         AND NOT REMOVE_DIACRITICS(LOWER(word)) {like_op_start} ?
         ORDER BY _id
@@ -805,7 +889,7 @@ def format_dglai14_results(results):
                 'expressions': {}
             }
         aggregated_results[lexie_id]['sens_frs'].add(row['sens_fr'])
-        aggregated_results[lexie_id]['sens_ars'].add(row['sens_ar'])
+        aggregated_results[lexie_id]['sens_ars'].add(row['sens_ar']) # Ensure arabic sense is added
         if row['exp_amz']:
             exp_amz = row['exp_amz']
             if exp_amz not in aggregated_results[lexie_id]['expressions']:
@@ -816,7 +900,7 @@ def format_dglai14_results(results):
             if row['exp_fr']:
                 aggregated_results[lexie_id]['expressions'][exp_amz]['french_translations'].add(row['exp_fr'])
             if row['exp_ar']:
-                aggregated_results[lexie_id]['expressions'][exp_amz]['arabic_translations'].add(row['exp_ar'])
+                aggregated_results[lexie_id]['expressions'][exp_amz]['arabic_translations'].add(row['exp_ar']) # Ensure arabic exp is added
 
     html_output = ""
     for lexie_id, data in aggregated_results.items():
