@@ -44,9 +44,11 @@ def search_dictionary(query):
 
     # Query for results starting with the search term (in any field)
     cursor.execute("""
-        SELECT lexie.*, sens.sens_fr, sens.sens_ar
+        SELECT lexie.*, sens.sens_fr, sens.sens_ar,
+               expression.exp_amz, expression.exp_fr, expression.exp_ar
         FROM lexie
         LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
+        LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
         WHERE
         (REPLACE(REPLACE(REPLACE(lower(lexie), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
         OR (REPLACE(REPLACE(REPLACE(lower(api), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
@@ -64,20 +66,26 @@ def search_dictionary(query):
         OR (REPLACE(REPLACE(REPLACE(lower(fpea), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
         OR (lower(sens_fr) LIKE ?)
         OR (REPLACE(REPLACE(REPLACE(lower(sens_ar), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(expression.exp_amz), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (lower(expression.exp_fr) LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(expression.exp_ar), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
 
         ORDER BY lexie.id_lexie
         LIMIT 50
     """, (start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
           start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
           start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
-          start_search_term_french, start_search_term_arabic)) # Apply french and arabic normalization to respective sens columns
+          start_search_term_french, start_search_term_arabic,
+          start_search_term_general, start_search_term_french, start_search_term_arabic)) # Apply french and arabic normalization to respective sens columns
     start_results = cursor.fetchall()
 
     # Query for results containing the search term (in any field), but NOT starting with in lexie field
     cursor.execute("""
-        SELECT lexie.*, sens.sens_fr, sens.sens_ar
+        SELECT lexie.*, sens.sens_fr, sens.sens_ar,
+               expression.exp_amz, expression.exp_fr, expression.exp_ar
         FROM lexie
         LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
+        LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
         WHERE (
         (REPLACE(REPLACE(REPLACE(lower(lexie), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
         OR (REPLACE(REPLACE(REPLACE(lower(api), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
@@ -95,6 +103,9 @@ def search_dictionary(query):
         OR (REPLACE(REPLACE(REPLACE(lower(fpea), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
         OR (lower(sens_fr) LIKE ?)
         OR (REPLACE(REPLACE(REPLACE(lower(sens_ar), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(expression.exp_amz), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (lower(expression.exp_fr) LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(expression.exp_ar), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
         )
         AND NOT (REPLACE(REPLACE(REPLACE(lower(lexie), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
         ORDER BY lexie.id_lexie
@@ -103,6 +114,7 @@ def search_dictionary(query):
           contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
           contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
           contain_search_term_french, contain_search_term_arabic,
+          contain_search_term_general, contain_search_term_french, contain_search_term_arabic,
           start_search_term_general)) # Using general normalization for NOT lexie LIKE condition and french/arabic for sens columns
     contain_results = cursor.fetchall()
 
@@ -134,10 +146,16 @@ def search_dictionary(query):
                 'fpel': row['fpel'],
                 'fpea': row['fpea'],
                 'sens_frs': [],
-                'sens_ars': []
+                'sens_ars': [],
+                'exp_amzs': [],
+                'exp_frs': [],
+                'exp_ars': []
             }
         aggregated_results[lexie_id]['sens_frs'].append(row['sens_fr'])
         aggregated_results[lexie_id]['sens_ars'].append(row['sens_ar'])
+        aggregated_results[lexie_id]['exp_amzs'].append(row['exp_amz'])
+        aggregated_results[lexie_id]['exp_frs'].append(row['exp_fr'])
+        aggregated_results[lexie_id]['exp_ars'].append(row['exp_ar'])
 
     # Format aggregated results as HTML
     html_output = ""
@@ -176,6 +194,9 @@ def search_dictionary(query):
 
         french_translations = ", ".join(filter(None, set(data['sens_frs'])))
         arabic_translations = ", ".join(filter(None, set(data['sens_ars'])))
+        amazigh_expressions = ", ".join(filter(None, set(data['exp_amzs'])))
+        french_expressions = ", ".join(filter(None, set(data['exp_frs'])))
+        arabic_expressions = ", ".join(filter(None, set(data['exp_ars'])))
 
         if french_translations:
             html_output += f"""
@@ -189,6 +210,27 @@ def search_dictionary(query):
             <div style="margin-bottom: 8px;">
                 <strong style="color: #34495e;">Arabic Translation:</strong>
                 <span style="color: black;">{arabic_translations}</span>
+            </div>
+            """
+        if amazigh_expressions:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Amazigh Expressions:</strong>
+                <span style="color: black;">{amazigh_expressions}</span>
+            </div>
+            """
+        if french_expressions:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">French Expressions:</strong>
+                <span style="color: black;">{french_expressions}</span>
+            </div>
+            """
+        if arabic_expressions:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Arabic Expressions:</strong>
+                <span style="color: black;">{arabic_expressions}</span>
             </div>
             """
 
