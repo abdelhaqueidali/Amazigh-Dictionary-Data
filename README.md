@@ -1,5 +1,5 @@
 ---
-title: Dictionary Amazigh Zgh
+title: Amazigh-Dictionary
 emoji: 🌖
 colorFrom: green
 colorTo: pink
