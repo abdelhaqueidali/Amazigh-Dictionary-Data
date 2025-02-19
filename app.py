@@ -263,13 +263,13 @@ def search_tawalt(start_search_term_general, contain_search_term_general,start_s
         OR (REMOVE_DIACRITICS(LOWER(arabic)) LIKE ?)
         OR (REMOVE_DIACRITICS(LOWER(arabic_meaning)) LIKE ?)
         OR (NORMALIZE_AMAZIGH(tifinagh_in_arabic) LIKE ?) -- Use NORMALIZE_AMAZIGH
-        OR (NORMALIZE_AMAZIGH(_arabic) LIKE ?)
-        OR (NORMALIZE_AMAZIGH(_arabic_meaning) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(_arabic)) LIKE ?)  -- Corrected: REMOVE_DIACRITICS for arabic columns
+        OR (REMOVE_DIACRITICS(LOWER(_arabic_meaning)) LIKE ?) -- Corrected: REMOVE_DIACRITICS for arabic columns
         OR (NORMALIZE_AMAZIGH(_tifinagh_in_arabic) LIKE ?)
         ORDER BY _id
         LIMIT ?
     """, (start_search_term_amazigh, start_search_term_general, start_search_term_general, start_search_term_amazigh,
-          start_search_term_amazigh, start_search_term_amazigh, start_search_term_amazigh, limit))
+          start_search_term_general, start_search_term_general, start_search_term_amazigh, limit))
     start_results = cursor.fetchall()
 
     # Contain Search (tawalt)
@@ -281,15 +281,15 @@ def search_tawalt(start_search_term_general, contain_search_term_general,start_s
         OR (REMOVE_DIACRITICS(LOWER(arabic)) LIKE ?)
         OR (REMOVE_DIACRITICS(LOWER(arabic_meaning)) LIKE ?)
         OR (NORMALIZE_AMAZIGH(tifinagh_in_arabic) LIKE ?) -- Use NORMALIZE_AMAZIGH
-        OR (NORMALIZE_AMAZIGH(_arabic) LIKE ?)
-        OR (NORMALIZE_AMAZIGH(_arabic_meaning) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(_arabic)) LIKE ?)  -- Corrected: REMOVE_DIACRITICS for arabic columns
+        OR (REMOVE_DIACRITICS(LOWER(_arabic_meaning)) LIKE ?) -- Corrected: REMOVE_DIACRITICS for arabic columns
         OR (NORMALIZE_AMAZIGH(_tifinagh_in_arabic) LIKE ?)
         )
         AND NOT (NORMALIZE_AMAZIGH(tifinagh) LIKE ?) -- Use NORMALIZE_AMAZIGH
         ORDER BY _id
         LIMIT ?
     """, (contain_search_term_amazigh, contain_search_term_general, contain_search_term_general, contain_search_term_amazigh,
-          contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_amazigh,
+          contain_search_term_general, contain_search_term_general, contain_search_term_amazigh,
           start_search_term_amazigh, limit)) # Use start_search_term_amazigh for NOT LIKE
     contain_results = cursor.fetchall()
     conn.close()
