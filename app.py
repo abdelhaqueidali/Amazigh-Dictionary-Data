@@ -766,13 +766,6 @@ def format_msmun_fr_m_results(results):
                 <span style="color: black;">Yes</span>
             </div>
             """
-        if row['tfiar']:
-            html_output += f"""
-            <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">Tfiar:</strong>
-                <span style="color: black;">{row['tfiar']}</span>
-            </div>
-            """
         html_output += "</div>"
     return html_output
 
@@ -846,13 +839,6 @@ def format_msmun_ar_m_r_results(results):
             <div style="margin-bottom: 8px;">
                 <strong style="color: #34495e;">Favorites:</strong>
                 <span style="color: black;">Yes</span>
-            </div>
-            """
-        if row['tfiar']:
-            html_output += f"""
-            <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">Tfiar:</strong>
-                <span style="color: black;">{row['tfiar']}</span>
             </div>
             """
         html_output += "</div>"
