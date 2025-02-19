@@ -52,13 +52,6 @@ def normalize_amazigh_text(text):
 
     return text.lower() # Return lowercase for consistence
 
-def normalize_english_text(text):
-    """Normalizes English text for searching (lowercase)."""
-    if not text:
-        return text
-    return text.lower()
-
-
 def search_dictionary(query, language, exact_match):
     print(f"Searching for: '{query}', Language: '{language}', Exact Match: {exact_match}") # Debug print
     if not query or len(query.strip()) < 1:
@@ -76,26 +69,26 @@ def search_dictionary(query, language, exact_match):
         dglai14_results = search_dglai14(search_term_general_start, search_term_general_contain, search_term_amazigh_start, search_term_amazigh_contain, exact_match)
         remaining_results = 50 - len(dglai14_results)
 
-        tawalt_results = search_tawalt(search_term_general_start, search_term_general_contain,start_search_term_amazigh, search_term_amazigh_contain, remaining_results, exact_match)
-        remaining_results -= len(tawalt_results)
-
-        msmun_fr_r_results = search_msmun_fr_r(search_term_general_start, search_term_general_contain, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
-        remaining_results -= len(msmun_fr_r_results)
-
-        msmun_ar_r_m_results = search_msmun_ar_r_m(search_term_general_start, search_term_general_contain, contain_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
-        remaining_results -= len(msmun_ar_r_m_results)
-
-        tawalt_fr_results = search_tawalt_fr(search_term_general_start, search_term_general_contain, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
+        tawalt_fr_results = search_tawalt_fr(search_term_general_start, search_term_general_contain, search_term_amazigh_start, search_term_amazigh_contain, remaining_results, exact_match)
         remaining_results -= len(tawalt_fr_results)
 
-        eng_results = search_eng(search_term_general_start, search_term_general_contain, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
+        tawalt_results = search_tawalt(search_term_general_start, search_term_general_contain, search_term_amazigh_start, search_term_amazigh_contain, remaining_results, exact_match)
+        remaining_results -= len(tawalt_results)
+
+        eng_results = search_eng(search_term_general_start, search_term_general_contain, search_term_amazigh_start, search_term_amazigh_contain, remaining_results, exact_match)
         remaining_results -= len(eng_results)
 
-        msmun_fr_m_results = search_msmun_fr_m(search_term_general_start, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
+        msmun_fr_m_results = search_msmun_fr_m(search_term_general_start, search_term_general_contain, search_term_amazigh_start, search_term_amazigh_contain, remaining_results, exact_match)
         remaining_results -= len(msmun_fr_m_results)
 
-        msmun_ar_m_r_results = search_msmun_ar_m_r(search_term_general_start, search_term_general_contain, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
+        msmun_fr_r_results = search_msmun_fr_r(search_term_general_start, search_term_general_contain, search_term_amazigh_start, search_term_amazigh_contain, remaining_results, exact_match)
+        remaining_results -= len(msmun_fr_r_results)
+
+        msmun_ar_m_r_results = search_msmun_ar_m_r(search_term_general_start, search_term_general_contain, search_term_amazigh_start, search_term_amazigh_contain, remaining_results, exact_match)
         remaining_results -= len(msmun_ar_m_r_results)
+
+        msmun_ar_r_m_results = search_msmun_ar_r_m(search_term_general_start, search_term_general_contain, search_term_amazigh_start, search_term_amazigh_contain, remaining_results, exact_match)
+        remaining_results -= len(msmun_ar_r_m_results)
 
 
     elif language == "Amazigh":
@@ -105,18 +98,16 @@ def search_dictionary(query, language, exact_match):
 
         dglai14_results = search_dglai14(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, exact_match)
         remaining_results = 50 - len(dglai14_results)
-        tawalt_results = search_tawalt(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, remaining_results, exact_match)
-        remaining_results -= len(tawalt_results)
-        msmun_fr_r_results = search_msmun_fr_r(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, remaining_results, exact_match)
-        remaining_results -= len(msmun_fr_r_results)
-        msmun_ar_r_m_results = search_msmun_ar_r_m(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, remaining_results, exact_match)
-        remaining_results -= len(msmun_ar_r_m_results)
         tawalt_fr_results = search_tawalt_fr(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, remaining_results, exact_match)
         remaining_results -= len(tawalt_fr_results)
+        tawalt_results = search_tawalt(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, remaining_results, exact_match)
+        remaining_results -= len(tawalt_results)
         eng_results = search_eng(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, remaining_results, exact_match)
         remaining_results -= len(eng_results)
         msmun_fr_m_results = []
+        msmun_fr_r_results = []
         msmun_ar_m_r_results = []
+        msmun_ar_r_m_results = []
 
 
     elif language == "French":
@@ -142,35 +133,17 @@ def search_dictionary(query, language, exact_match):
         search_term_arabic_exact = normalized_query_arabic if exact_match else f"{normalized_query_arabic}%"
         search_term_arabic_contain = normalized_query_arabic if exact_match else f"%{normalized_query_arabic}%"
 
-        dglai14_results = search_dglai14(search_term_arabic_exact, search_term_arabic_contain, "", "", exact_match) # Include dglai14 search
-        remaining_results = 50 - len(dglai14_results)
-
-        tawalt_results = search_tawalt(search_term_arabic_exact, search_term_arabic_contain, "", "", remaining_results, exact_match, arabic_only=True) # Arabic only search in tawalt
-        remaining_results -= len(tawalt_results)
-        tawalt_fr_results = [] # No French results in Arabic specific search
-        eng_results = [] # No English results in Arabic specific search
+        tawalt_results = search_tawalt(search_term_arabic_exact, search_term_arabic_contain, "", "", 50, exact_match, arabic_only=True) # Arabic only search in tawalt
+        remaining_results = 50 - len(tawalt_results)
+        dglai14_results = []
+        tawalt_fr_results = []
+        eng_results = []
         msmun_ar_m_r_results = search_msmun_ar_m_r(search_term_arabic_exact, search_term_arabic_contain, "", "", remaining_results, exact_match, arabic_only=True)
         remaining_results -= len(msmun_ar_m_r_results)
         msmun_ar_r_m_results = search_msmun_ar_r_m(search_term_arabic_exact, search_term_arabic_contain, "", "", remaining_results, exact_match, arabic_only=True)
         remaining_results -= len(msmun_ar_r_m_results)
-        msmun_fr_m_results = [] # No French results in Arabic specific search
-        msmun_fr_r_results = [] # No French results in Arabic specific search
-
-    elif language == "English": # Add English Language Search
-        normalized_query_english = normalize_english_text(query)
-        search_term_english_exact = normalized_query_english if exact_match else f"{normalized_query_english}%"
-        search_term_english_contain = normalized_query_english if exact_match else f"%{normalized_query_english}%"
-
-        eng_results = search_eng(search_term_english_exact, search_term_english_contain, "", "", 50, exact_match, english_only=True) # English only search in eng.db
-        remaining_results = 50 - len(eng_results)
-
-        dglai14_results = []
-        tawalt_fr_results = []
-        tawalt_results = []
         msmun_fr_m_results = []
         msmun_fr_r_results = []
-        msmun_ar_m_r_results = []
-        msmun_ar_r_m_results = []
 
 
     else: # Default to General if language is not selected or something goes wrong
@@ -185,17 +158,11 @@ def search_dictionary(query, language, exact_match):
         dglai14_results = search_dglai14(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, exact_match)
         remaining_results = 50 - len(dglai14_results)
 
-        tawalt_results = search_tawalt(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
-        remaining_results -= len(tawalt_results)
-
-        msmun_fr_r_results = search_msmun_fr_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
-        remaining_results -= len(msmun_fr_r_results)
-
-        msmun_ar_r_m_results = search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, contain_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
-        remaining_results -= len(msmun_ar_r_m_results)
-
         tawalt_fr_results = search_tawalt_fr(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
         remaining_results -= len(tawalt_fr_results)
+
+        tawalt_results = search_tawalt(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
+        remaining_results -= len(tawalt_results)
 
         eng_results = search_eng(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
         remaining_results -= len(eng_results)
@@ -203,19 +170,25 @@ def search_dictionary(query, language, exact_match):
         msmun_fr_m_results = search_msmun_fr_m(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
         remaining_results -= len(msmun_fr_m_results)
 
+        msmun_fr_r_results = search_msmun_fr_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
+        remaining_results -= len(msmun_fr_r_results)
+
         msmun_ar_m_r_results = search_msmun_ar_m_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
         remaining_results -= len(msmun_ar_m_r_results)
 
+        msmun_ar_r_m_results = search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, contain_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
+        remaining_results -= len(msmun_ar_r_m_results)
 
-    # --- Combine and Format Results in Prioritized Amazigh Order ---
+
+    # --- Combine and Format Results ---
     html_output = format_dglai14_results(dglai14_results)  # Format dglai14 results
-    html_output += format_tawalt_results(tawalt_results) # Format tawalt results
-    html_output += format_msmun_fr_r_results(msmun_fr_r_results) # Format msmun_fr table_r results
-    html_output += format_msmun_ar_r_m_results(msmun_ar_r_m_results) # Format msmun_ar table_r_m results
     html_output += format_tawalt_fr_results(tawalt_fr_results) # Format tawalt_fr results
+    html_output += format_tawalt_results(tawalt_results) # Format tawalt results (if any)
     html_output += format_eng_results(eng_results)
     html_output += format_msmun_fr_m_results(msmun_fr_m_results) # Format msmun_fr table_m results
-    html_output += format_msmun_ar_m_r_results(msmun_ar_m_r_results) # Format msmun_ar table_m_r results
+    html_output += format_msmun_fr_r_results(msmun_fr_r_results) # Format msmun_fr table_r results
+    html_output += format_msmun_ar_m_r_results(msmun_ar_m_r_results)
+    html_output += format_msmun_ar_r_m_results(msmun_ar_r_m_results)
 
 
     if not html_output:
@@ -449,7 +422,7 @@ def search_tawalt(start_search_term_general, contain_search_term_general,start_s
     conn.close()
     return list(start_results) + list(contain_results)
 
-def search_eng(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit, exact_match, english_only=False): # Added english_only parameter
+def search_eng(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit, exact_match):
     conn = get_db_connection('eng.db')
     cursor = conn.cursor()
     conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
@@ -457,111 +430,60 @@ def search_eng(start_search_term_general, contain_search_term_general, start_sea
     like_op_start = "=" if exact_match else "LIKE"
     like_op_contain = "=" if exact_match else "LIKE"
 
-    query_parts = []
-    params_start = []
-    params_contain = []
+    print(f"  eng - Start Search Term General: '{start_search_term_general}', Contain: '{contain_search_term_general}', Amazigh Start: '{start_search_term_amazigh}', Contain: '{contain_search_term_amazigh}', Exact: {exact_match}") # Debug print
 
-
-    query_parts.append(f"(LOWER(dea.sens_eng) {like_op_start} ?)") # Search in English meanings
-    params_start.append(start_search_term_general) # Use general search term as it's normalized english
-    query_parts.append(f"(LOWER(dea.sens_eng) {like_op_contain} ?)")
-    params_contain.append(contain_search_term_general)
-
-
-    if not english_only: # Only search amazigh fields if not english_only search
-        query_parts.append(f"(NORMALIZE_AMAZIGH(da.lexie) {like_op_start} ?)")
-        params_start.append(start_search_term_amazigh)
-        query_parts.append(f"(NORMALIZE_AMAZIGH(da.lexie) {like_op_contain} ?)")
-        params_contain.append(contain_search_term_amazigh)
-        query_parts.append(f"(NORMALIZE_AMAZIGH(da.remarque) {like_op_start} ?)")
-        params_start.append(start_search_term_amazigh)
-        query_parts.append(f"(NORMALIZE_AMAZIGH(da.remarque) {like_op_contain} ?)")
-        params_contain.append(contain_search_term_amazigh)
-        query_parts.append(f"(NORMALIZE_AMAZIGH(da.variante) {like_op_start} ?)")
-        params_start.append(start_search_term_amazigh)
-        query_parts.append(f"(NORMALIZE_AMAZIGH(da.variante) {like_op_contain} ?)")
-        params_contain.append(contain_search_term_amazigh)
-        query_parts.append(f"(LOWER(da.cg) {like_op_start} ?)")
-        params_start.append(start_search_term_general) # Use general search term for cg as it's alphanumeric
-        query_parts.append(f"(LOWER(da.cg) {like_op_contain} ?)")
-        params_contain.append(contain_search_term_general)
-        query_parts.append(f"(NORMALIZE_AMAZIGH(da.eadata) {like_op_start} ?)")
-        params_start.append(start_search_term_amazigh)
-        query_parts.append(f"(NORMALIZE_AMAZIGH(da.eadata) {like_op_contain} ?)")
-        params_contain.append(contain_search_term_amazigh)
-        query_parts.append(f"(NORMALIZE_AMAZIGH(da.pldata) {like_op_start} ?)")
-        params_start.append(start_search_term_amazigh)
-        query_parts.append(f"(NORMALIZE_AMAZIGH(da.pldata) {like_op_contain} ?)")
-        params_contain.append(contain_search_term_amazigh)
-        query_parts.append(f"(LOWER(da.acc) {like_op_start} ?)")
-        params_start.append(start_search_term_general) # Use general search term for acc as it's alphanumeric
-        query_parts.append(f"(LOWER(da.acc) {like_op_contain} ?)")
-        params_contain.append(contain_search_term_general)
-        query_parts.append(f"(LOWER(da.acc_neg) {like_op_start} ?)")
-        params_start.append(start_search_term_general) # Use general search term for acc_neg as it's alphanumeric
-        query_parts.append(f"(LOWER(da.acc_neg) {like_op_contain} ?)")
-        params_contain.append(contain_search_term_general)
-        query_parts.append(f"(LOWER(da.inacc) {like_op_start} ?)")
-        params_start.append(start_search_term_general) # Use general search term for inacc as it's alphanumeric
-        query_parts.append(f"(LOWER(da.inacc) {like_op_contain} ?)")
-        params_contain.append(contain_search_term_general)
-
-
-    start_query_where = " OR ".join(query_parts[::2]) # Take even indices for start
-    contain_query_where = " OR ".join(query_parts[1::2]) # Take odd indices for contain
-
-
-    print(f"  eng - Start Search Term General: '{start_search_term_general}', Contain: '{contain_search_term_general}', Amazigh Start: '{start_search_term_amazigh}', Contain: '{contain_search_term_amazigh}', Exact: {exact_match}, English Only: {english_only}") # Debug print
-
-
-    sql_params_start = tuple(params_start + [limit])
-    sql_params_contain = tuple(params_contain + ([params_start[0]] if params_start else []) + [limit]) # Use the first start term for NOT LIKE clause
-
-
-    start_query = f"""
+    cursor.execute(f"""
         SELECT da.*, dea.sens_eng
         FROM Dictionary_Amazigh_full AS da
         LEFT JOIN Dictionary_English_Amazih_links AS dea ON da.id_lexie = dea.id_lexie
         WHERE (
-            {start_query_where}
+            NORMALIZE_AMAZIGH(da.lexie) {like_op_start} ?
+            OR NORMALIZE_AMAZIGH(da.remarque) {like_op_start} ?
+            OR NORMALIZE_AMAZIGH(da.variante) {like_op_start} ?
+            OR LOWER(da.cg) {like_op_start} ?
+            OR NORMALIZE_AMAZIGH(da.eadata) {like_op_start} ?
+            OR NORMALIZE_AMAZIGH(da.pldata) {like_op_start} ?
+            OR LOWER(da.acc) {like_op_start} ?
+            OR LOWER(da.acc_neg) {like_op_start} ?
+            OR LOWER(da.inacc) {like_op_start} ?
+            OR LOWER(dea.sens_eng) {like_op_start} ?
         )
         ORDER BY da.id_lexie
         LIMIT ?
-    """
+    """, (start_search_term_amazigh, start_search_term_amazigh, start_search_term_amazigh, start_search_term_general,
+          start_search_term_amazigh, start_search_term_amazigh, start_search_term_general, start_search_term_general,
+          start_search_term_general, start_search_term_general, limit))
 
-    contain_query = f"""
+    start_results = cursor.fetchall()
+    print(f"  eng - Start Results Count: {len(start_results)}") # Debug print
+
+    cursor.execute(f"""
       SELECT da.*, dea.sens_eng
         FROM Dictionary_Amazigh_full AS da
         LEFT JOIN Dictionary_English_Amazih_links AS dea ON da.id_lexie = dea.id_lexie
         WHERE (
-            {contain_query_where}
+            NORMALIZE_AMAZIGH(da.lexie) {like_op_contain} ?
+            OR NORMALIZE_AMAZIGH(da.remarque) {like_op_contain} ?
+            OR NORMALIZE_AMAZIGH(da.variante) {like_op_contain} ?
+            OR LOWER(da.cg) {like_op_contain} ?
+            OR NORMALIZE_AMAZIGH(da.eadata) {like_op_contain} ?
+            OR NORMALIZE_AMAZIGH(da.pldata) {like_op_contain} ?
+            OR LOWER(da.acc) {like_op_contain} ?
+            OR LOWER(da.acc_neg) {like_op_contain} ?
+            OR LOWER(da.inacc) {like_op_contain} ?
+            OR LOWER(dea.sens_eng) {like_op_contain} ?
         )
-        AND NOT (LOWER(dea.sens_eng) {like_op_start} ?)  """ # Only exclude exact match on english meaning for contain search as other fields might have start match
-    if not english_only and params_start: # Add NOT LIKE clause for amazigh lexie if not english_only search and params_start is not empty
-        contain_query += f" AND NOT NORMALIZE_AMAZIGH(da.lexie) {like_op_start} ? "
-        sql_params_contain = tuple(params_contain + [params_start[0], params_start[0], limit]) # Add params_start[0] twice for both NOT LIKE clauses
-    else:
-        contain_query += " "
-        sql_params_contain = tuple(params_contain + [params_start[0], limit]) # Add params_start[0] once for NOT LIKE clause
-
-
-    contain_query += """
+        AND NOT NORMALIZE_AMAZIGH(da.lexie) {like_op_start} ?
         ORDER BY da.id_lexie
         LIMIT ?
-    """
-
-
-    cursor.execute(start_query, sql_params_start)
-    start_results = cursor.fetchall()
-    print(f"  eng - Start Results Count: {len(start_results)}") # Debug print
-
-    cursor.execute(contain_query, sql_params_contain)
+    """, (contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_general,
+          contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_general, contain_search_term_general,
+          contain_search_term_general, contain_search_term_general, start_search_term_amazigh, limit))
     contain_results = cursor.fetchall()
     print(f"  eng - Contain Results Count: {len(contain_results)}") # Debug print
     conn.close()
 
     return list(start_results) + list(contain_results)
-
 
 def search_msmun_fr_m(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit, exact_match, french_only=False):
     conn = get_db_connection('msmun_fr.db')
@@ -755,7 +677,7 @@ def search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, 
     query_parts.append(f"(REMOVE_DIACRITICS(LOWER(word)) {like_op_start} ?)")
     params_start.append(start_search_term_general)
     query_parts.append(f"(REMOVE_DIACRITICS(LOWER(word)) {like_op_contain} ?)")
-    params_contain.append(start_search_term_general)
+    params_contain.append(contain_search_term_general)
 
 
     start_query_where = " OR ".join(query_parts[::2]) # Take even indices for start
@@ -1207,7 +1129,7 @@ footer {display: none !important}
 
     with gr.Row():
         language_radio = gr.Radio(
-            ["General", "Amazigh", "French", "Arabic", "English"], # Added "English" here
+            ["General", "Amazigh", "French", "Arabic"],
             label="Language",
             value="General",
             interactive=True,
