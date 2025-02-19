@@ -172,7 +172,6 @@ def search_dictionary(query):
                     <strong style="color: #34495e;">{label}:</strong>
                     <span style="color: black;">{data[field]}</span>
                 </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2px;">
                 """
 
         french_translations = ", ".join(filter(None, set(data['sens_frs'])))
@@ -184,7 +183,6 @@ def search_dictionary(query):
                 <strong style="color: #34495e;">French Translation:</strong>
                 <span style="color: black;">{french_translations}</span>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2px;">
             """
         if arabic_translations:
             html_output += f"""
@@ -192,7 +190,6 @@ def search_dictionary(query):
                 <strong style="color: #34495e;">Arabic Translation:</strong>
                 <span style="color: black;">{arabic_translations}</span>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2px;">
             """
 
 
