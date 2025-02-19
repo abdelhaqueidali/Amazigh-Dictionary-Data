@@ -10,28 +10,25 @@ def remove_diacritics(text):
     return ''.join(c for c in unicodedata.normalize('NFD', text)
                    if unicodedata.category(c) != 'Mn')
 
-def get_db_connection():
-    conn = sqlite3.connect('tawalt.db')  # Connect to tawalt.db
+def get_db_connection(db_name):  # Function now takes db_name as argument
+    conn = sqlite3.connect(db_name)
     conn.row_factory = sqlite3.Row
-    # Create the custom SQLite function
     conn.create_function("REMOVE_DIACRITICS", 1, remove_diacritics)
     return conn
 
 def normalize_french_text(text):
-    """Normalize French text by removing diacritics and converting to lower case."""
     if not text:
         return text
     normalized_text = ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn')
     return normalized_text.lower()
 
 def normalize_arabic_text(text):
-    """Normalize Arabic text by unifying similar characters (Alif)."""
     if not text:
         return text
     text = text.replace("أ", "ا").replace("إ", "ا").replace("آ", "ا") # unify alif forms
-    return text.lower() # Keep lowercasing for consistency
+    return text.lower()
 
-def normalize_general_text(text): #Add general normalization
+def normalize_general_text(text):
     if not text:
         return text
     text = normalize_arabic_text(text)
@@ -41,19 +38,112 @@ def search_dictionary(query):
     if not query or len(query.strip()) < 1:
         return "Please enter a search term"
 
-    conn = get_db_connection()
-    cursor = conn.cursor()
-
-    normalized_query_french = normalize_french_text(query)  # Keep French for potential future use with this DB
     normalized_query_general = normalize_general_text(query)
-
-    start_search_term_french = f"{normalized_query_french}%" # Keep French for potential future use with this DB
-    contain_search_term_french = f"%{normalized_query_french}%" # Keep French for potential future use with this DB
     start_search_term_general = f"{normalized_query_general}%"
     contain_search_term_general = f"%{normalized_query_general}%"
 
+    # --- Search dglai14.db (Prioritized) ---
+    dglai14_results = search_dglai14(start_search_term_general, contain_search_term_general)
 
-    # Query for results starting with the search term (in any field)
+    # --- Search tawalt.db (Secondary) ---
+    # Only search tawalt if dglai14 returns fewer than 50 results
+    if len(dglai14_results) < 50:
+        remaining_count = 50 - len(dglai14_results)
+        tawalt_results = search_tawalt(start_search_term_general, contain_search_term_general, remaining_count)
+    else:
+        tawalt_results = []  # No need to search tawalt
+
+    # --- Combine and Format Results ---
+    html_output = format_dglai14_results(dglai14_results)  # Format dglai14 results
+    html_output += format_tawalt_results(tawalt_results) # Format tawalt results (if any)
+
+    if not html_output:
+        return "No results found"
+
+    return html_output
+
+
+def search_dglai14(start_search_term, contain_search_term):
+    conn = get_db_connection('dglai14.db')
+    cursor = conn.cursor()
+
+    # Start Search (dglai14)
+    cursor.execute("""
+        SELECT lexie.*, sens.sens_fr, sens.sens_ar,
+               expression.exp_amz, expression.exp_fr, expression.exp_ar
+        FROM lexie
+        LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
+        LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
+        WHERE
+        (REMOVE_DIACRITICS(LOWER(lexie)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(api)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(remarque)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(variante)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(cg)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(eadata)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(pldata)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(acc)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(acc_neg)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(inacc)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fel)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fea)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fpel)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fpea)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(sens_ar)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(expression.exp_amz)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) LIKE ?)
+
+        ORDER BY lexie.id_lexie
+        LIMIT 50
+    """, (start_search_term, start_search_term, start_search_term, start_search_term, start_search_term,
+          start_search_term, start_search_term, start_search_term, start_search_term, start_search_term,
+          start_search_term, start_search_term, start_search_term, start_search_term,
+          start_search_term, start_search_term, start_search_term))
+    start_results = cursor.fetchall()
+
+    # Contain Search (dglai14)
+    cursor.execute("""
+        SELECT lexie.*, sens.sens_fr, sens.sens_ar,
+               expression.exp_amz, expression.exp_fr, expression.exp_ar
+        FROM lexie
+        LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
+        LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
+        WHERE (
+        (REMOVE_DIACRITICS(LOWER(lexie)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(api)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(remarque)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(variante)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(cg)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(eadata)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(pldata)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(acc)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(acc_neg)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(inacc)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fel)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fea)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fpel)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fpea)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(sens_ar)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(expression.exp_amz)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) LIKE ?)
+        )
+        AND NOT (REMOVE_DIACRITICS(LOWER(lexie)) LIKE ?)
+        ORDER BY lexie.id_lexie
+        LIMIT 50
+    """, (contain_search_term, contain_search_term, contain_search_term, contain_search_term, contain_search_term,
+          contain_search_term, contain_search_term, contain_search_term, contain_search_term, contain_search_term,
+          contain_search_term, contain_search_term, contain_search_term, contain_search_term,
+          contain_search_term, contain_search_term, contain_search_term,
+          start_search_term))
+    contain_results = cursor.fetchall()
+    conn.close()
+    return list(start_results) + list(contain_results)
+
+def search_tawalt(start_search_term, contain_search_term, limit):
+    conn = get_db_connection('tawalt.db')
+    cursor = conn.cursor()
+
+    # Start Search (tawalt)
     cursor.execute("""
         SELECT *
         FROM words
@@ -66,13 +156,12 @@ def search_dictionary(query):
         OR (REMOVE_DIACRITICS(LOWER(_arabic_meaning)) LIKE ?)
         OR (REMOVE_DIACRITICS(LOWER(_tifinagh_in_arabic)) LIKE ?)
         ORDER BY _id
-        LIMIT 50
-    """, (start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
-          start_search_term_general, start_search_term_general, start_search_term_general))  # Use general normalization
-
+        LIMIT ?
+    """, (start_search_term, start_search_term, start_search_term, start_search_term,
+          start_search_term, start_search_term, start_search_term, limit))
     start_results = cursor.fetchall()
 
-    # Query for results containing the search term, but NOT starting with the tifinagh
+    # Contain Search (tawalt)
     cursor.execute("""
         SELECT *
         FROM words
@@ -87,29 +176,156 @@ def search_dictionary(query):
         )
         AND NOT (REMOVE_DIACRITICS(LOWER(tifinagh)) LIKE ?)
         ORDER BY _id
-        LIMIT 50
-    """, (contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
-          contain_search_term_general, contain_search_term_general, contain_search_term_general,
-          start_search_term_general)) # and not the start term in tifinagh
+        LIMIT ?
+    """, (contain_search_term, contain_search_term, contain_search_term, contain_search_term,
+          contain_search_term, contain_search_term, contain_search_term,
+          start_search_term, limit))
     contain_results = cursor.fetchall()
-
     conn.close()
-
-    results = list(start_results) + list(contain_results)
-
+    return list(start_results) + list(contain_results)
+def format_dglai14_results(results):
+    """Formats results from dglai14.db."""
     if not results:
-        return "No results found"
+        return ""
 
-    # No need for aggregation since there are no joins.  Directly format.
+    aggregated_results = {}
+    for row in results:
+        lexie_id = row['id_lexie']
+        if lexie_id not in aggregated_results:
+            aggregated_results[lexie_id] = {
+                'lexie': row['lexie'],
+                'api': row['api'],
+                'remarque': row['remarque'],
+                'variante': row['variante'],
+                'cg': row['cg'],
+                'eadata': row['eadata'],
+                'pldata': row['pldata'],
+                'acc': row['acc'],
+                'acc_neg': row['acc_neg'],
+                'inacc': row['inacc'],
+                'fel': row['fel'],
+                'fea': row['fea'],
+                'fpel': row['fpel'],
+                'fpea': row['fpea'],
+                'sens_frs': set(),
+                'sens_ars': set(),
+                'expressions': {}
+            }
+        aggregated_results[lexie_id]['sens_frs'].add(row['sens_fr'])
+        aggregated_results[lexie_id]['sens_ars'].add(row['sens_ar'])
+        if row['exp_amz']:
+            exp_amz = row['exp_amz']
+            if exp_amz not in aggregated_results[lexie_id]['expressions']:
+                aggregated_results[lexie_id]['expressions'][exp_amz] = {
+                    'french_translations': set(),
+                    'arabic_translations': set()
+                }
+            if row['exp_fr']:
+                aggregated_results[lexie_id]['expressions'][exp_amz]['french_translations'].add(row['exp_fr'])
+            if row['exp_ar']:
+                aggregated_results[lexie_id]['expressions'][exp_amz]['arabic_translations'].add(row['exp_ar'])
+
     html_output = ""
-    for row in results[:50]:  # Limit to 50 results directly
+    for lexie_id, data in aggregated_results.items():
+        html_output += f"""
+        <div style="background: #f0f8ff; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{data['lexie'] or ''}</h3>
+                <span style="background: #3498db; color: white; padding: 4px 8px; border-radius: 4px;">{data['cg'] or ''}</span>
+            </div>
+        """
+
+        fields = {
+            'Transcription': 'api',
+            'Notes': 'remarque',
+            'Construct State': 'eadata',
+            'Plural': 'pldata',
+            'Accomplished': 'acc',
+            'Negative Accomplished': 'acc_neg',
+            'Unaccomplished': 'inacc',
+            'Variants': 'variante',
+            'Feminine': 'fel',
+            'Feminine Construct': 'fea',
+            'Feminine Plural': 'fpel',
+            'Feminine Plural Construct': 'fpea',
+        }
+
+        for label, field in fields.items():
+            if data[field]:
+                html_output += f"""
+                <div style="margin-bottom: 8px;">
+                    <strong style="color: #34495e;">{label}:</strong>
+                    <span style="color: black;">{data[field]}</span>
+                </div>
+                """
+
+        french_translations = ", ".join(filter(None, data['sens_frs']))
+        arabic_translations = ", ".join(filter(None, data['sens_ars']))
+
+        if french_translations:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">French Translation:</strong>
+                <span style="color: black;">{french_translations}</span>
+            </div>
+            """
+        if arabic_translations:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Arabic Translation:</strong>
+                <span style="color: black;">{arabic_translations}</span>
+            </div>
+            """
+
+        if data['expressions']:
+            html_output += f"""
+            <div style="margin-top: 10px; border-top: 1px solid #ddd; padding-top: 10px;">
+                <strong style="color: #34495e;">Expressions:</strong>
+            """
+            for exp_amz, translations in data['expressions'].items():
+                french_exp_translations = ", ".join(filter(None, translations['french_translations']))
+                arabic_exp_translations = ", ".join(filter(None, translations['arabic_translations']))
+
+                html_output += f"""
+                <div style="margin-top: 6px; padding-left: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px;">
+                    <div style="margin-bottom: 4px;">
+                        <strong style="color: #546e7a;">Amazigh:</strong>
+                        <span style="color: black;">{exp_amz or ''}</span>
+                    </div>
+                    """
+                if french_exp_translations:
+                    html_output += f"""
+                    <div style="margin-bottom: 4px;">
+                        <strong style="color: #546e7a;">French:</strong>
+                        <span style="color: black;">{french_exp_translations or ''}</span>
+                    </div>
+                    """
+                if arabic_exp_translations:
+                    html_output += f"""
+                    <div>
+                        <strong style="color: #546e7a;">Arabic:</strong>
+                        <span style="color: black;">{arabic_exp_translations or ''}</span>
+                    </div>
+                    """
+                html_output += "</div>"
+            html_output += "</div>"
+
+        html_output += "</div>"
+    return html_output
+
+def format_tawalt_results(results):
+    """Formats results from tawalt.db."""
+    if not results:
+        return ""
+
+    html_output = ""
+    for row in results:
         html_output += f"""
         <div style="background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">
                 <h3 style="color: #2c3e50; margin: 0;">{row['tifinagh'] or ''}</h3>
             </div>
         """
-        # Display relevant fields, handling potential NULL values
         if row['arabic']:
             html_output += f"""
             <div style="margin-bottom: 8px;">
@@ -124,12 +340,10 @@ def search_dictionary(query):
                 <span style="color: black;">{row['arabic_meaning']}</span>
             </div>
             """
-        # Add other fields similarly, if you need to display them
         html_output += "</div>"
 
     return html_output
-
-# Create Gradio interface
+# Create Gradio interface (Remains the same)
 with gr.Blocks(css="footer {display: none !important}") as iface:
     gr.HTML("""
     <div style="text-align: center; margin-bottom: 2rem;">
