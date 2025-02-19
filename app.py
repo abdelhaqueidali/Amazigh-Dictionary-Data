@@ -30,6 +30,10 @@ def remove_arabic_diacritics_sql(text_column):
     processed_text = f"REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE(REPLACE({text_column}, '{diacritics[0]}', ''), '{diacritics[1]}', ''), '{diacritics[2]}', ''), '{diacritics[3]}', ''), '{diacritics[4]}', ''), '{diacritics[5]}', ''), '{diacritics[6]}', ''), '{diacritics[7]}', '')"
     return processed_text
 
+def normalize_sql_column(column_name):
+    normalized_column = f"lower({remove_arabic_diacritics_sql(f'REPLACE(REPLACE(REPLACE({column_name}, \"أ\", \"ا\"), \"إ\", \"ا\"), \"آ\", \"ا\")')})"
+    return normalized_column
+
 def search_dictionary(query):
     if not query or len(query.strip()) < 1:
         return "Please enter a search term"
@@ -47,11 +51,6 @@ def search_dictionary(query):
     contain_search_term_arabic = f"%{normalized_query_arabic}%"
     start_search_term_general = f"{normalized_query_general}%"
     contain_search_term_general = f"%{normalized_query_general}%"
-
-    # Helper function to apply normalization in SQL
-    def normalize_sql_column(column_name):
-        normalized_column = f"lower({remove_arabic_diacritics_sql(f'REPLACE(REPLACE(REPLACE({column_name}, \'أ\', \'ا\'), \'إ\', \'ا\'), \'آ\', \'ا\')')})"
-        return normalized_column
 
     # Query for results starting with the search term (in any field)
     cursor.execute(f"""
