@@ -14,7 +14,10 @@ def search_dictionary(query):
     conn = get_db_connection()
     cursor = conn.cursor()
 
-    search_term = f"%{query}%"
+    start_search_term = f"{query}%"
+    contain_search_term = f"%{query}%"
+
+    # Query for results starting with the search term
     cursor.execute("""
         SELECT lexie.*, sens.sens_fr, sens.sens_ar
         FROM lexie
@@ -24,29 +27,73 @@ def search_dictionary(query):
         OR remarque LIKE ?
         OR variante LIKE ?
         OR cg LIKE ?
-        OR eadata LIKE ?  -- Added Construct State to search
-        OR pldata LIKE ?  -- Added Plural to search
-        OR acc LIKE ?     -- Added Accomplished to search
-        OR acc_neg LIKE ? -- Added Negative Accomplished to search
-        OR inacc LIKE ?   -- Added Unaccomplished to search
-        OR fel LIKE ?     -- Added Feminine to search
-        OR fea LIKE ?     -- Added Feminine Construct to search
-        OR fpel LIKE ?    -- Added Feminine Plural to search
-        OR fpea LIKE ?    -- Added Feminine Plural Construct to search
+        OR eadata LIKE ?
+        OR pldata LIKE ?
+        OR acc LIKE ?
+        OR acc_neg LIKE ?
+        OR inacc LIKE ?
+        OR fel LIKE ?
+        OR fea LIKE ?
+        OR fpel LIKE ?
+        OR fpea LIKE ?
         LIMIT 50
-    """, (search_term, search_term, search_term, search_term, search_term,
-          search_term, search_term, search_term, search_term, search_term,
-          search_term, search_term, search_term, search_term))
+    """, (start_search_term, start_search_term, start_search_term, start_search_term, start_search_term,
+          start_search_term, start_search_term, start_search_term, start_search_term, start_search_term,
+          start_search_term, start_search_term, start_search_term, start_search_term))
+    start_results = cursor.fetchall()
 
-    results = cursor.fetchall()
+    # Query for results containing the search term (but not starting, to avoid duplicates in priority results)
+    cursor.execute("""
+        SELECT lexie.*, sens.sens_fr, sens.sens_ar
+        FROM lexie
+        LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
+        WHERE (lexie LIKE ?
+        OR api LIKE ?
+        OR remarque LIKE ?
+        OR variante LIKE ?
+        OR cg LIKE ?
+        OR eadata LIKE ?
+        OR pldata LIKE ?
+        OR acc LIKE ?
+        OR acc_neg LIKE ?
+        OR inacc LIKE ?
+        OR fel LIKE ?
+        OR fea LIKE ?
+        OR fpel LIKE ?
+        OR fpea LIKE ?)
+        AND NOT (lexie LIKE ?
+        OR api LIKE ?
+        OR remarque LIKE ?
+        OR variante LIKE ?
+        OR cg LIKE ?
+        OR eadata LIKE ?
+        OR pldata LIKE ?
+        OR acc LIKE ?
+        OR acc_neg LIKE ?
+        OR inacc LIKE ?
+        OR fel LIKE ?
+        OR fea LIKE ?
+        OR fpel LIKE ?
+        OR fpea LIKE ?)
+        LIMIT 50
+    """, (contain_search_term, contain_search_term, contain_search_term, contain_search_term, contain_search_term,
+          contain_search_term, contain_search_term, contain_search_term, contain_search_term, contain_search_term,
+          contain_search_term, contain_search_term, contain_search_term, contain_search_term,
+          start_search_term, start_search_term, start_search_term, start_search_term, start_search_term,
+          start_search_term, start_search_term, start_search_term, start_search_term, start_search_term,
+          start_search_term, start_search_term, start_search_term, start_search_term))
+    contain_results = cursor.fetchall()
+
     conn.close()
+
+    results = list(start_results) + list(contain_results)
 
     if not results:
         return "No results found"
 
     # Format results as HTML
     html_output = ""
-    for row in results:
+    for row in results[:50]: # Limit to 50 after combining
         html_output += f"""
         <div style="background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">
@@ -70,8 +117,8 @@ def search_dictionary(query):
             'Feminine Construct': 'fea',
             'Feminine Plural': 'fpel',
             'Feminine Plural Construct': 'fpea',
-            'French Translation': 'sens_fr',  # Added French Translation
-            'Arabic Translation': 'sens_ar'   # Added Arabic Translation
+            'French Translation': 'sens_fr',
+            'Arabic Translation': 'sens_ar'
         }
 
         for label, field in fields.items():
