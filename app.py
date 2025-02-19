@@ -275,7 +275,7 @@ def search_tawalt(start_search_term_general, contain_search_term_general,start_s
         query_parts.append(f"(NORMALIZE_AMAZIGH(tifinagh_in_arabic) {like_op_start} ?)")
         params_start.append(start_search_term_amazigh)
         query_parts.append(f"(NORMALIZE_AMAZIGH(tifinagh_in_arabic) {like_op_contain} ?)")
-        params_contain.append(start_search_term_amazigh)
+        params_contain.append(contain_search_term_amazigh)
         query_parts.append(f"(NORMALIZE_AMAZIGH(_tifinagh_in_arabic) {like_op_start} ?)")
         params_start.append(start_search_term_amazigh)
         query_parts.append(f"(NORMALIZE_AMAZIGH(_tifinagh_in_arabic) {like_op_contain} ?)")
@@ -467,14 +467,14 @@ def search_msmun_fr_r(start_search_term_general, contain_search_term_general, st
     params_contain = []
 
     if not french_only:
-        query_parts.append(f"(NORMALIZE_AMAZIGH(result) {like_op_start} ?)")
+        query_parts.append(f"(NORMALIZE_AMAZIGH(result) {like_op_start} ?)") # result is amazigh
         params_start.append(start_search_term_amazigh)
-        query_parts.append(f"(NORMALIZE_AMAZIGH(result) {like_op_contain} ?)")
+        query_parts.append(f"(NORMALIZE_AMAZIGH(result) {like_op_contain} ?)") # result is amazigh
         params_contain.append(contain_search_term_amazigh)
 
-    query_parts.append(f"(NORMALIZE_FRENCH(word) {like_op_start} ?)")
+    query_parts.append(f"(NORMALIZE_FRENCH(word) {like_op_start} ?)") # word is french
     params_start.append(start_search_term_general)
-    query_parts.append(f"(NORMALIZE_FRENCH(word) {like_op_contain} ?)")
+    query_parts.append(f"(NORMALIZE_FRENCH(word) {like_op_contain} ?)") # word is french
     params_contain.append(contain_search_term_general)
 
 
@@ -532,7 +532,7 @@ def search_msmun_ar_m_r(start_search_term_general, contain_search_term_general, 
     query_parts.append(f"(REMOVE_DIACRITICS(LOWER(result)) {like_op_start} ?)")
     params_start.append(start_search_term_general)
     query_parts.append(f"(REMOVE_DIACRITICS(LOWER(result)) {like_op_contain} ?)")
-    params_contain.append(start_search_term_general)
+    params_contain.append(contain_search_term_general)
 
 
     start_query_where = " OR ".join(query_parts[::2]) # Take even indices for start
@@ -588,7 +588,7 @@ def search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, 
     query_parts.append(f"(REMOVE_DIACRITICS(LOWER(word)) {like_op_start} ?)")
     params_start.append(start_search_term_general)
     query_parts.append(f"(REMOVE_DIACRITICS(LOWER(word)) {like_op_contain} ?)")
-    params_contain.append(start_search_term_general)
+    params_contain.append(contain_search_term_general)
 
 
     start_query_where = " OR ".join(query_parts[::2]) # Take even indices for start
@@ -926,7 +926,7 @@ def format_msmun_fr_r_results(results):
         if row['result']:
             html_output += f"""
             <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">Arabic Translation:</strong>
+                <strong style="color: #34495e;">French Translation:</strong>
                 <span style="color: black;">{row['result']}</span>
             </div>
             """
@@ -1001,7 +1001,7 @@ def format_msmun_ar_r_m_results(results):
         if row['word']:
             html_output += f"""
             <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">Arabic Translation:</strong>
+                <strong style="color: #34495e;">Amazigh Translation:</strong>
                 <span style="color: black;">{row['word']}</span>
             </div>
             """
