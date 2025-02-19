@@ -135,7 +135,7 @@ def search_dictionary(query, language, exact_match):
         msmun_ar_r_m_results = []
 
 
-        elif language == "Arabic":
+    elif language == "Arabic":
         normalized_query_arabic = normalize_general_text(query) # Using general for arabic normalization
         search_term_arabic_exact = normalized_query_arabic if exact_match else f"{normalized_query_arabic}%"
         search_term_arabic_contain = normalized_query_arabic if exact_match else f"%{normalized_query_arabic}%"
