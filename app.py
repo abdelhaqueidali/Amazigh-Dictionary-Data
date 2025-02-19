@@ -125,7 +125,7 @@ def search_dictionary(query):
     if not results:
         return "No results found"
 
-    # Aggregate results by lexie.id_lexie
+    # Aggregate results by lexie.id_lexie, now including expressions
     aggregated_results = {}
     for row in results:
         lexie_id = row['id_lexie']
@@ -145,17 +145,17 @@ def search_dictionary(query):
                 'fea': row['fea'],
                 'fpel': row['fpel'],
                 'fpea': row['fpea'],
-                'sens_frs': [],
-                'sens_ars': [],
-                'exp_amzs': [],
-                'exp_frs': [],
-                'exp_ars': []
+                'sens_fr': row['sens_fr'], # Take the first sens_fr, as it's the same for all expressions of the same lexie
+                'sens_ar': row['sens_ar'], # Take the first sens_ar for the same reason
+                'expressions': [] # List to hold expressions and their translations
             }
-        aggregated_results[lexie_id]['sens_frs'].append(row['sens_fr'])
-        aggregated_results[lexie_id]['sens_ars'].append(row['sens_ar'])
-        aggregated_results[lexie_id]['exp_amzs'].append(row['exp_amz'])
-        aggregated_results[lexie_id]['exp_frs'].append(row['exp_fr'])
-        aggregated_results[lexie_id]['exp_ars'].append(row['exp_ar'])
+        if row['exp_amz']: # Only add if exp_amz is not None
+            aggregated_results[lexie_id]['expressions'].append({
+                'exp_amz': row['exp_amz'],
+                'exp_fr': row['exp_fr'],
+                'exp_ar': row['exp_ar']
+            })
+
 
     # Format aggregated results as HTML
     html_output = ""
@@ -192,47 +192,44 @@ def search_dictionary(query):
                 </div>
                 """
 
-        french_translations = ", ".join(filter(None, set(data['sens_frs'])))
-        arabic_translations = ", ".join(filter(None, set(data['sens_ars'])))
-        amazigh_expressions = ", ".join(filter(None, set(data['exp_amzs'])))
-        french_expressions = ", ".join(filter(None, set(data['exp_frs'])))
-        arabic_expressions = ", ".join(filter(None, set(data['exp_ars'])))
-
-        if french_translations:
+        if data['sens_fr']:
             html_output += f"""
             <div style="margin-bottom: 8px;">
                 <strong style="color: #34495e;">French Translation:</strong>
-                <span style="color: black;">{french_translations}</span>
+                <span style="color: black;">{data['sens_fr']}</span>
             </div>
             """
-        if arabic_translations:
+        if data['sens_ar']:
             html_output += f"""
             <div style="margin-bottom: 8px;">
                 <strong style="color: #34495e;">Arabic Translation:</strong>
-                <span style="color: black;">{arabic_translations}</span>
+                <span style="color: black;">{data['sens_ar']}</span>
             </div>
             """
-        if amazigh_expressions:
+
+        if data['expressions']:
             html_output += f"""
-            <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">Amazigh Expressions:</strong>
-                <span style="color: black;">{amazigh_expressions}</span>
-            </div>
+            <div style="margin-top: 10px; border-top: 1px solid #ddd; padding-top: 10px;">
+                <strong style="color: #34495e;">Expressions:</strong>
             """
-        if french_expressions:
-            html_output += f"""
-            <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">French Expressions:</strong>
-                <span style="color: black;">{french_expressions}</span>
-            </div>
-            """
-        if arabic_expressions:
-            html_output += f"""
-            <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">Arabic Expressions:</strong>
-                <span style="color: black;">{arabic_expressions}</span>
-            </div>
-            """
+            for exp_data in data['expressions']:
+                html_output += f"""
+                <div style="margin-top: 6px; padding-left: 15px;">
+                    <div style="margin-bottom: 4px;">
+                        <strong style="color: #546e7a;">Amazigh:</strong>
+                        <span style="color: black;">{exp_data['exp_amz'] or ''}</span>
+                    </div>
+                    <div style="margin-bottom: 4px;">
+                        <strong style="color: #546e7a;">French:</strong>
+                        <span style="color: black;">{exp_data['exp_fr'] or ''}</span>
+                    </div>
+                    <div>
+                        <strong style="color: #546e7a;">Arabic:</strong>
+                        <span style="color: black;">{exp_data['exp_ar'] or ''}</span>
+                    </div>
+                </div>
+                """
+            html_output += "</div>"
 
 
         html_output += "</div></div>"
