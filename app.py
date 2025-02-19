@@ -53,6 +53,7 @@ def normalize_amazigh_text(text):
     return text.lower() # Return lowercase for consistence
 
 def search_dictionary(query, language, exact_match):
+    print(f"Searching for: '{query}', Language: '{language}', Exact Match: {exact_match}") # Debug print
     if not query or len(query.strip()) < 1:
         return "Please enter a search term"
 
@@ -206,6 +207,8 @@ def search_dglai14(start_search_term_general, contain_search_term_general,start_
     like_op_start = "=" if exact_match else "LIKE"
     like_op_contain = "=" if exact_match else "LIKE"
 
+    print(f"  dglai14 - Start Search Term General: '{start_search_term_general}', Contain: '{contain_search_term_general}', Amazigh Start: '{start_search_term_amazigh}', Contain: '{contain_search_term_amazigh}', Exact: {exact_match}") # Debug print
+
     # Start Search (dglai14)
     cursor.execute(f"""
         SELECT lexie.*, sens.sens_fr, sens.sens_ar,
@@ -214,7 +217,7 @@ def search_dglai14(start_search_term_general, contain_search_term_general,start_
         LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
         LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
         WHERE
-        (NORMALIZE_AMAZIGH(lexie) {like_op_start} ?) -- Use NORMALIZE_AMAZIGH for lexie (Amazigh word)
+        (NORMALIZE_AMAZIGH(lexie) {like_op_start} ?)
         OR (NORMALIZE_AMAZIGH(remarque) {like_op_start} ?)
         OR (NORMALIZE_AMAZIGH(variante) {like_op_start} ?)
         OR (REMOVE_DIACRITICS(LOWER(cg)) {like_op_start} ?)
@@ -228,7 +231,7 @@ def search_dglai14(start_search_term_general, contain_search_term_general,start_
         OR (REMOVE_diacritics(LOWER(fpel)) {like_op_start} ?)
         OR (REMOVE_DIACRITICS(LOWER(fpea)) {like_op_start} ?)
         OR (REMOVE_DIACRITICS(LOWER(sens_ar)) {like_op_start} ?)
-        OR (NORMALIZE_AMAZIGH(expression.exp_amz) {like_op_start} ?) -- Use NORMALIZE_AMAZIGH for exp_amz
+        OR (NORMALIZE_AMAZIGH(expression.exp_amz) {like_op_start} ?)
         OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) {like_op_start} ?)
 
         ORDER BY lexie.id_lexie
@@ -238,6 +241,7 @@ def search_dglai14(start_search_term_general, contain_search_term_general,start_
           start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
           start_search_term_general, start_search_term_amazigh, start_search_term_general))
     start_results = cursor.fetchall()
+    print(f"  dglai14 - Start Results Count: {len(start_results)}") # Debug print
 
     # Contain Search (dglai14)
     cursor.execute(f"""
@@ -247,7 +251,7 @@ def search_dglai14(start_search_term_general, contain_search_term_general,start_
         LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
         LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
         WHERE (
-        (NORMALIZE_AMAZIGH(lexie) {like_op_contain} ?) -- Use NORMALIZE_AMAZIGH for lexie (Amazigh word)
+        (NORMALIZE_AMAZIGH(lexie) {like_op_contain} ?)
         OR (NORMALIZE_AMAZIGH(remarque) {like_op_contain} ?)
         OR (NORMALIZE_AMAZIGH(variante) {like_op_contain} ?)
         OR (REMOVE_DIACRITICS(LOWER(cg)) {like_op_contain} ?)
@@ -261,10 +265,10 @@ def search_dglai14(start_search_term_general, contain_search_term_general,start_
         OR (REMOVE_DIACRITICS(LOWER(fpel)) {like_op_contain} ?)
         OR (REMOVE_DIACRITICS(LOWER(fpea)) {like_op_contain} ?)
         OR (REMOVE_DIACRITICS(LOWER(sens_ar)) {like_op_contain} ?)
-        OR (NORMALIZE_AMAZIGH(expression.exp_amz) {like_op_contain} ?) -- Use NORMALIZE_AMAZIGH for exp_amz
+        OR (NORMALIZE_AMAZIGH(expression.exp_amz) {like_op_contain} ?)
         OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) {like_op_contain} ?)
         )
-        AND NOT (NORMALIZE_AMAZIGH(lexie) {like_op_start} ?) -- Use NORMALIZE_AMAZIGH here too
+        AND NOT (NORMALIZE_AMAZIGH(lexie) {like_op_start} ?)
         ORDER BY lexie.id_lexie
         LIMIT 50
     """, (contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_general,
@@ -273,6 +277,7 @@ def search_dglai14(start_search_term_general, contain_search_term_general,start_
           contain_search_term_general, contain_search_term_amazigh, contain_search_term_general,
           start_search_term_amazigh))  # Use start_search_term_amazigh for the NOT LIKE part
     contain_results = cursor.fetchall()
+    print(f"  dglai14 - Contain Results Count: {len(contain_results)}") # Debug print
     conn.close()
     return list(start_results) + list(contain_results)
 
@@ -306,6 +311,7 @@ def search_tawalt_fr(start_search_term_general, contain_search_term_general, sta
     start_query_where = " OR ".join(query_parts[::2]) # Take even indices for start
     contain_query_where = " OR ".join(query_parts[1::2]) # Take odd indices for contain
 
+    print(f"  tawalt_fr - Start Search Term General: '{start_search_term_general}', Contain: '{contain_search_term_general}', Amazigh Start: '{start_search_term_amazigh}', Contain: '{contain_search_term_amazigh}', Exact: {exact_match}, French Only: {french_only}") # Debug print
 
     # Start Search (tawalt_fr)
     cursor.execute(f"""
@@ -317,6 +323,7 @@ def search_tawalt_fr(start_search_term_general, contain_search_term_general, sta
         LIMIT ?
     """, tuple(params_start + [limit]))
     start_results = cursor.fetchall()
+    print(f"  tawalt_fr - Start Results Count: {len(start_results)}") # Debug print
 
     # Contain Search (tawalt_fr)
     cursor.execute(f"""
@@ -330,6 +337,7 @@ def search_tawalt_fr(start_search_term_general, contain_search_term_general, sta
         LIMIT ?
     """, tuple(params_contain + [start_search_term_amazigh, limit]))
     contain_results = cursor.fetchall()
+    print(f"  tawalt_fr - Contain Results Count: {len(contain_results)}") # Debug print
     conn.close()
     return list(start_results) + list(contain_results)
 
@@ -384,6 +392,7 @@ def search_tawalt(start_search_term_general, contain_search_term_general,start_s
     start_query_where = " OR ".join(query_parts[::2]) # Take even indices for start
     contain_query_where = " OR ".join(query_parts[1::2]) # Take odd indices for contain
 
+    print(f"  tawalt - Start Search Term General: '{start_search_term_general}', Contain: '{contain_search_term_general}', Amazigh Start: '{start_search_term_amazigh}', Contain: '{contain_search_term_amazigh}', Exact: {exact_match}, Arabic Only: {arabic_only}") # Debug print
 
     # Start Search (tawalt)
     cursor.execute(f"""
@@ -395,6 +404,7 @@ def search_tawalt(start_search_term_general, contain_search_term_general,start_s
         LIMIT ?
     """, tuple(params_start + [limit]))
     start_results = cursor.fetchall()
+    print(f"  tawalt - Start Results Count: {len(start_results)}") # Debug print
 
     # Contain Search (tawalt)
     cursor.execute(f"""
@@ -403,11 +413,12 @@ def search_tawalt(start_search_term_general, contain_search_term_general,start_s
         WHERE (
         {contain_query_where}
         )
-        AND NOT (NORMALIZE_AMAZIGH(tifinagh) {like_op_start} ?) -- Use NORMALIZE_AMAZIGH
+        AND NOT (NORMALIZE_AMAZIGH(tifinagh) {like_op_start} ?)
         ORDER BY _id
         LIMIT ?
     """, tuple(params_contain + [start_search_term_amazigh, limit])) # Use start_search_term_amazigh for NOT LIKE
     contain_results = cursor.fetchall()
+    print(f"  tawalt - Contain Results Count: {len(contain_results)}") # Debug print
     conn.close()
     return list(start_results) + list(contain_results)
 
@@ -418,6 +429,8 @@ def search_eng(start_search_term_general, contain_search_term_general, start_sea
 
     like_op_start = "=" if exact_match else "LIKE"
     like_op_contain = "=" if exact_match else "LIKE"
+
+    print(f"  eng - Start Search Term General: '{start_search_term_general}', Contain: '{contain_search_term_general}', Amazigh Start: '{start_search_term_amazigh}', Contain: '{contain_search_term_amazigh}', Exact: {exact_match}") # Debug print
 
     cursor.execute(f"""
         SELECT da.*, dea.sens_eng
@@ -442,6 +455,7 @@ def search_eng(start_search_term_general, contain_search_term_general, start_sea
           start_search_term_general, start_search_term_general, limit))
 
     start_results = cursor.fetchall()
+    print(f"  eng - Start Results Count: {len(start_results)}") # Debug print
 
     cursor.execute(f"""
       SELECT da.*, dea.sens_eng
@@ -466,6 +480,7 @@ def search_eng(start_search_term_general, contain_search_term_general, start_sea
           contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_general, contain_search_term_general,
           contain_search_term_general, contain_search_term_general, start_search_term_amazigh, limit))
     contain_results = cursor.fetchall()
+    print(f"  eng - Contain Results Count: {len(contain_results)}") # Debug print
     conn.close()
 
     return list(start_results) + list(contain_results)
@@ -498,6 +513,7 @@ def search_msmun_fr_m(start_search_term_general, contain_search_term_general, st
     start_query_where = " OR ".join(query_parts[::2]) # Take even indices for start
     contain_query_where = " OR ".join(query_parts[1::2]) # Take odd indices for contain
 
+    print(f"  msmun_fr_m - Start Search Term General: '{start_search_term_general}', Contain: '{contain_search_term_general}', Amazigh Start: '{start_search_term_amazigh}', Contain: '{contain_search_term_amazigh}', Exact: {exact_match}, French Only: {french_only}") # Debug print
 
     cursor.execute(f"""
         SELECT *
@@ -509,6 +525,7 @@ def search_msmun_fr_m(start_search_term_general, contain_search_term_general, st
         LIMIT ?
     """, tuple(params_start + [limit]))
     start_results = cursor.fetchall()
+    print(f"  msmun_fr_m - Start Results Count: {len(start_results)}") # Debug print
 
     cursor.execute(f"""
         SELECT *
@@ -521,6 +538,7 @@ def search_msmun_fr_m(start_search_term_general, contain_search_term_general, st
         LIMIT ?
     """, tuple(params_contain + [start_search_term_amazigh, limit]))
     contain_results = cursor.fetchall()
+    print(f"  msmun_fr_m - Contain Results Count: {len(contain_results)}") # Debug print
     conn.close()
     return list(start_results) + list(contain_results)
 
@@ -552,6 +570,7 @@ def search_msmun_fr_r(start_search_term_general, contain_search_term_general, st
     start_query_where = " OR ".join(query_parts[::2]) # Take even indices for start
     contain_query_where = " OR ".join(query_parts[1::2]) # Take odd indices for contain
 
+    print(f"  msmun_fr_r - Start Search Term General: '{start_search_term_general}', Contain: '{contain_search_term_general}', Amazigh Start: '{start_search_term_amazigh}', Contain: '{contain_search_term_amazigh}', Exact: {exact_match}, French Only: {french_only}") # Debug print
 
     cursor.execute(f"""
         SELECT *
@@ -563,6 +582,7 @@ def search_msmun_fr_r(start_search_term_general, contain_search_term_general, st
         LIMIT ?
     """, tuple(params_start + [limit]))
     start_results = cursor.fetchall()
+    print(f"  msmun_fr_r - Start Results Count: {len(start_results)}") # Debug print
 
     cursor.execute(f"""
         SELECT *
@@ -575,6 +595,7 @@ def search_msmun_fr_r(start_search_term_general, contain_search_term_general, st
         LIMIT ?
     """, tuple(params_contain + [start_search_term_general, limit]))
     contain_results = cursor.fetchall()
+    print(f"  msmun_fr_r - Contain Results Count: {len(contain_results)}") # Debug print
     conn.close()
     return list(start_results) + list(contain_results)
 
@@ -606,6 +627,7 @@ def search_msmun_ar_m_r(start_search_term_general, contain_search_term_general, 
     start_query_where = " OR ".join(query_parts[::2]) # Take even indices for start
     contain_query_where = " OR ".join(query_parts[1::2]) # Take odd indices for contain
 
+    print(f"  msmun_ar_m_r - Start Search Term General: '{start_search_term_general}', Contain: '{contain_search_term_general}', Amazigh Start: '{start_search_term_amazigh}', Contain: '{contain_search_term_amazigh}', Exact: {exact_match}, Arabic Only: {arabic_only}") # Debug print
 
     cursor.execute(f"""
         SELECT *
@@ -617,6 +639,7 @@ def search_msmun_ar_m_r(start_search_term_general, contain_search_term_general, 
         LIMIT ?
     """, tuple(params_start + [limit]))
     start_results = cursor.fetchall()
+    print(f"  msmun_ar_m_r - Start Results Count: {len(start_results)}") # Debug print
 
     cursor.execute(f"""
         SELECT *
@@ -629,6 +652,7 @@ def search_msmun_ar_m_r(start_search_term_general, contain_search_term_general, 
         LIMIT ?
     """, tuple(params_contain + [start_search_term_amazigh, limit]))
     contain_results = cursor.fetchall()
+    print(f"  msmun_ar_m_r - Contain Results Count: {len(contain_results)}") # Debug print
     conn.close()
     return list(start_results) + list(contain_results)
 
@@ -659,6 +683,7 @@ def search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, 
     start_query_where = " OR ".join(query_parts[::2]) # Take even indices for start
     contain_query_where = " OR ".join(query_parts[1::2]) # Take odd indices for contain
 
+    print(f"  msmun_ar_r_m - Start Search Term General: '{start_search_term_general}', Contain: '{contain_search_term_general}', Amazigh Start: '{start_search_term_amazigh}', Contain: '{contain_search_term_amazigh}', Exact: {exact_match}, Arabic Only: {arabic_only}") # Debug print
 
     cursor.execute(f"""
         SELECT *
@@ -670,6 +695,7 @@ def search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, 
         LIMIT ?
     """, tuple(params_start + [limit]))
     start_results = cursor.fetchall()
+    print(f"  msmun_ar_r_m - Start Results Count: {len(start_results)}") # Debug print
 
     cursor.execute(f"""
         SELECT *
@@ -682,6 +708,7 @@ def search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, 
         LIMIT ?
     """, tuple(params_contain + [start_search_term_general, limit]))
     contain_results = cursor.fetchall()
+    print(f"  msmun_ar_r_m - Contain Results Count: {len(contain_results)}") # Debug print
     conn.close()
     return list(start_results) + list(contain_results)
 
@@ -1114,13 +1141,14 @@ footer {display: none !important}
             placeholder="Enter a word to search...",
             lines=1
         )
+        search_button = gr.Button("Search") # Add search button
 
     with gr.Row():
         exact_checkbox = gr.Checkbox(label="Exact search", value=False)
 
     output_html = gr.HTML()
 
-    input_text.change(
+    search_button.click( # Use button.click instead of text.change
         fn=search_dictionary,
         inputs=[input_text, language_radio, exact_checkbox],
         outputs=output_html,
