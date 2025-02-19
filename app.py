@@ -20,8 +20,7 @@ def normalize_arabic_text(text):
     if not text:
         return text
     text = text.replace("أ", "ا").replace("إ", "ا").replace("آ", "ا") # unify alif forms
-    # Add more replacements if needed for other similar chars
-    normalized_text = ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn') # remove diacritics
+    normalized_text = ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn') # remove diacritics - RE-ENABLED
     return normalized_text
 
 def search_dictionary(query):
@@ -33,7 +32,7 @@ def search_dictionary(query):
 
     normalized_query_french = normalize_french_text(query)
     normalized_query_arabic = normalize_arabic_text(query)
-    normalized_query_general = normalized_query_arabic # Use arabic normalization for general search as it covers more cases
+    normalized_query_general = normalize_arabic_text(query) # Use arabic normalization for general search
 
     start_search_term_french = f"{normalized_query_french}%"
     contain_search_term_french = f"%{normalized_query_french}%"
@@ -43,27 +42,29 @@ def search_dictionary(query):
     contain_search_term_general = f"%{normalized_query_general}%"
 
 
-    # Query for results starting with the search term (in any field) - using general normalization for wider search
+    # Query for results starting with the search term (in any field)
     cursor.execute("""
         SELECT lexie.*, sens.sens_fr, sens.sens_ar
         FROM lexie
         LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
-        WHERE lower(lexie) LIKE ?
-        OR lower(api) LIKE ?
-        OR lower(remarque) LIKE ?
-        OR lower(variante) LIKE ?
-        OR lower(cg) LIKE ?
-        OR lower(eadata) LIKE ?
-        OR lower(pldata) LIKE ?
-        OR lower(acc) LIKE ?
-        OR lower(acc_neg) LIKE ?
-        OR lower(inacc) LIKE ?
-        OR lower(fel) LIKE ?
-        OR lower(fea) LIKE ?
-        OR lower(fpel) LIKE ?
-        OR lower(fpea) LIKE ?
-        OR lower(sens_fr) LIKE ?
-        OR lower(sens_ar) LIKE ?
+        WHERE
+        (REPLACE(REPLACE(REPLACE(lower(lexie), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(api), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(remarque), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(variante), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(cg), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(eadata), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(pldata), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(acc), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(acc_neg), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(inacc), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(fel), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(fea), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(fpel), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(fpea), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (lower(sens_fr) LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(sens_ar), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+
         ORDER BY lexie.id_lexie
         LIMIT 50
     """, (start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
@@ -77,23 +78,25 @@ def search_dictionary(query):
         SELECT lexie.*, sens.sens_fr, sens.sens_ar
         FROM lexie
         LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
-        WHERE (lower(lexie) LIKE ?
-        OR lower(api) LIKE ?
-        OR lower(remarque) LIKE ?
-        OR lower(variante) LIKE ?
-        OR lower(cg) LIKE ?
-        OR lower(eadata) LIKE ?
-        OR lower(pldata) LIKE ?
-        OR lower(acc) LIKE ?
-        OR lower(acc_neg) LIKE ?
-        OR lower(inacc) LIKE ?
-        OR lower(fel) LIKE ?
-        OR lower(fea) LIKE ?
-        OR lower(fpel) LIKE ?
-        OR lower(fpea) LIKE ?
-        OR lower(sens_fr) LIKE ?
-        OR lower(sens_ar) LIKE ?)
-        AND NOT lower(lexie) LIKE ?
+        WHERE (
+        (REPLACE(REPLACE(REPLACE(lower(lexie), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(api), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(remarque), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(variante), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(cg), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(eadata), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(pldata), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(acc), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(acc_neg), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(inacc), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(fel), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(fea), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(fpel), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(fpea), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        OR (lower(sens_fr) LIKE ?)
+        OR (REPLACE(REPLACE(REPLACE(lower(sens_ar), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        )
+        AND NOT (REPLACE(REPLACE(REPLACE(lower(lexie), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
         ORDER BY lexie.id_lexie
         LIMIT 50
     """, (contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
