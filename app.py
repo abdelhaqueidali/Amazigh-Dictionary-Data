@@ -221,6 +221,7 @@ def format_dglai14_results(results):
         if lexie_id not in aggregated_results:
             aggregated_results[lexie_id] = {
                 'lexie': row['lexie'],
+                'api': row['api'],
                 'remarque': row['remarque'],
                 'variante': row['variante'],
                 'cg': row['cg'],
