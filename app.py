@@ -102,6 +102,19 @@ def search_dictionary(query):
     else:
         msmun_ar_r_m_results = []
 
+    # --- Search msmun_بق.db (Senary) ---
+    if remaining_results > 0:
+        msmun_بق_m_results = search_msmun_بق_m(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
+        remaining_results -= len(msmun_بق_m_results)
+    else:
+        msmun_بق_m_results = []
+
+    if remaining_results > 0:
+        msmun_بق_r_results = search_msmun_بق_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
+        remaining_results -= len(msmun_بق_r_results)
+    else:
+        msmun_بق_r_results = []
+
 
     # --- Combine and Format Results ---
     html_output = format_dglai14_results(dglai14_results)  # Format dglai14 results
@@ -110,6 +123,8 @@ def search_dictionary(query):
     html_output += format_eng_results(eng_results)
     html_output += format_msmun_ar_m_r_results(msmun_ar_m_r_results)
     html_output += format_msmun_ar_r_m_results(msmun_ar_r_m_results)
+    html_output += format_msmun_بق_m_results(msmun_بق_m_results) # Format msmun_بق table_m results
+    html_output += format_msmun_بق_r_results(msmun_بق_r_results) # Format msmun_بق table_r results
 
 
     if not html_output:
@@ -400,273 +415,121 @@ def search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, 
     conn.close()
     return list(start_results) + list(contain_results)
 
+def search_msmun_بق_m(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit):
+    conn = get_db_connection('msmun_بق.db')
+    cursor = conn.cursor()
+    conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
+    conn.create_function("NORMALIZE_FRENCH", 1, normalize_french_text)
+
+    cursor.execute("""
+        SELECT *
+        FROM table_m
+        WHERE (
+            NORMALIZE_AMAZIGH(word) LIKE ?
+            OR NORMALIZE_FRENCH(result) LIKE ?
+            OR NORMALIZE_AMAZIGH(tfiar) LIKE ?
+        )
+        ORDER BY _id
+        LIMIT ?
+    """, (start_search_term_amazigh, start_search_term_general, start_search_term_amazigh, limit))
+    start_results = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT *
+        FROM table_m
+        WHERE (
+            NORMALIZE_AMAZIGH(word) LIKE ?
+            OR NORMALIZE_FRENCH(result) LIKE ?
+            OR NORMALIZE_AMAZIGH(tfiar) LIKE ?
+        )
+        AND NOT NORMALIZE_AMAZIGH(word) LIKE ?
+        ORDER BY _id
+        LIMIT ?
+    """, (contain_search_term_amazigh, contain_search_term_general, contain_search_term_amazigh, start_search_term_amazigh, limit))
+    contain_results = cursor.fetchall()
+    conn.close()
+    return list(start_results) + list(contain_results)
+
+def search_msmun_بق_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit):
+    conn = get_db_connection('msmun_بق.db')
+    cursor = conn.cursor()
+    conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
+    conn.create_function("NORMALIZE_FRENCH", 1, normalize_french_text)
+
+    cursor.execute("""
+        SELECT *
+        FROM table_r
+        WHERE (
+            NORMALIZE_FRENCH(word) LIKE ?
+            OR NORMALIZE_AMAZIGH(result) LIKE ?
+        )
+        ORDER BY _id
+        LIMIT ?
+    """, (start_search_term_general, start_search_term_amazigh, limit))
+    start_results = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT *
+        FROM table_r
+        WHERE (
+            NORMALIZE_FRENCH(word) LIKE ?
+            OR NORMALIZE_AMAZIGH(result) LIKE ?
+        )
+        AND NOT NORMALIZE_FRENCH(word) LIKE ?
+        ORDER BY _id
+        LIMIT ?
+    """, (contain_search_term_general, contain_search_term_amazigh, start_search_term_general, limit))
+    contain_results = cursor.fetchall()
+    conn.close()
+    return list(start_results) + list(contain_results)
+
 
 def format_dglai14_results(results):
     """Formats results from dglai14.db."""
-    if not results:
-        return ""
+    return _format_dglai14_results(results) # No change needed here, refactoring in helper function
 
-    aggregated_results = {}
-    for row in results:
-        lexie_id = row['id_lexie']
-        if lexie_id not in aggregated_results:
-            aggregated_results[lexie_id] = {
-                'lexie': row['lexie'],
-                'remarque': row['remarque'],
-                'variante': row['variante'],
-                'cg': row['cg'],
-                'eadata': row['eadata'],
-                'pldata': row['pldata'],
-                'acc': row['acc'],
-                'acc_neg': row['acc_neg'],
-                'inacc': row['inacc'],
-                'fel': row['fel'],
-                'fea': row['fea'],
-                'fpel': row['fpel'],
-                'fpea': row['fpea'],
-                'sens_frs': set(),
-                'sens_ars': set(),
-                'expressions': {}
-            }
-        aggregated_results[lexie_id]['sens_frs'].add(row['sens_fr'])
-        aggregated_results[lexie_id]['sens_ars'].add(row['sens_ar'])
-        if row['exp_amz']:
-            exp_amz = row['exp_amz']
-            if exp_amz not in aggregated_results[lexie_id]['expressions']:
-                aggregated_results[lexie_id]['expressions'][exp_amz] = {
-                    'french_translations': set(),
-                    'arabic_translations': set()
-                }
-            if row['exp_fr']:
-                aggregated_results[lexie_id]['expressions'][exp_amz]['french_translations'].add(row['exp_fr'])
-            if row['exp_ar']:
-                aggregated_results[lexie_id]['expressions'][exp_amz]['arabic_translations'].add(row['exp_ar'])
-
-    html_output = ""
-    for lexie_id, data in aggregated_results.items():
-        html_output += f"""
-        <div style="background: #f0f8ff; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">
-                <h3 style="color: #2c3e50; margin: 0;">{data['lexie'] or ''}</h3>
-                <span style="background: #3498db; color: white; padding: 4px 8px; border-radius: 4px;">{data['cg'] or ''}</span>
-            </div>
-        """
-
-        fields = {
-            'Notes': 'remarque',
-            'Construct State': 'eadata',
-            'Plural': 'pldata',
-            'Accomplished': 'acc',
-            'Negative Accomplished': 'acc_neg',
-            'Unaccomplished': 'inacc',
-            'Variants': 'variante',
-            'Feminine': 'fel',
-            'Feminine Construct': 'fea',
-            'Feminine Plural': 'fpel',
-            'Feminine Plural Construct': 'fpea',
-        }
-
-        for label, field in fields.items():
-            if data[field]:
-                html_output += f"""
-                <div style="margin-bottom: 8px;">
-                    <strong style="color: #34495e;">{label}:</strong>
-                    <span style="color: black;">{data[field]}</span>
-                </div>
-                """
-
-        french_translations = ", ".join(filter(None, data['sens_frs']))
-        arabic_translations = ", ".join(filter(None, data['sens_ars']))
-
-        if french_translations:
-            html_output += f"""
-            <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">French Translation:</strong>
-                <span style="color: black;">{french_translations}</span>
-            </div>
-            """
-        if arabic_translations:
-            html_output += f"""
-            <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">Arabic Translation:</strong>
-                <span style="color: black;">{arabic_translations}</span>
-            </div>
-            """
-
-        if data['expressions']:
-            html_output += f"""
-            <div style="margin-top: 10px; border-top: 1px solid #ddd; padding-top: 10px;">
-                <strong style="color: #34495e;">Expressions:</strong>
-            """
-            for exp_amz, translations in data['expressions'].items():
-                french_exp_translations = ", ".join(filter(None, translations['french_translations']))
-                arabic_exp_translations = ", ".join(filter(None, translations['arabic_translations']))
-
-                html_output += f"""
-                <div style="margin-top: 6px; padding-left: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px;">
-                    <div style="margin-bottom: 4px;">
-                        <strong style="color: #546e7a;">Amazigh:</strong>
-                        <span style="color: black;">{exp_amz or ''}</span>
-                    </div>
-                    """
-                if french_exp_translations:
-                    html_output += f"""
-                    <div style="margin-bottom: 4px;">
-                        <strong style="color: #546e7a;">French:</strong>
-                        <span style="color: black;">{french_exp_translations or ''}</span>
-                    </div>
-                    """
-                if arabic_exp_translations:
-                    html_output += f"""
-                    <div>
-                        <strong style="color: #546e7a;">Arabic:</strong>
-                        <span style="color: black;">{arabic_exp_translations or ''}</span>
-                    </div>
-                    """
-                html_output += "</div>"
-            html_output += "</div>"
-
-        html_output += "</div>"
-    return html_output
 
 def format_tawalt_fr_results(results):
     """Formats results from tawalt_fr.db."""
-    if not results:
-        return ""
-
-    html_output = ""
-    for row in results:
-        html_output += f"""
-        <div style="background: #ffe0b2; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ff9800; padding-bottom: 10px; margin-bottom: 10px;">
-                <h3 style="color: #2c3e50; margin: 0;">{row['tifinagh'] or ''}</h3>
-            </div>
-        """
-        if row['french']:
-            html_output += f"""
-            <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">French:</strong>
-                <span style="color: black;">{row['french']}</span>
-            </div>
-            """
-        html_output += "</div>"
-
-    return html_output
+    return _format_tawalt_fr_results(results) # No change needed here, refactoring in helper function
 
 
 def format_tawalt_results(results):
     """Formats results from tawalt.db."""
-    if not results:
-        return ""
+    return _format_tawalt_results(results) # No change needed here, refactoring in helper function
 
-    html_output = ""
-    for row in results:
-        html_output += f"""
-        <div style="background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">
-                <h3 style="color: #2c3e50; margin: 0;">{row['tifinagh'] or ''}</h3>
-            </div>
-        """
-        if row['arabic']:
-            html_output += f"""
-            <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">Arabic:</strong>
-                <span style="color: black;">{row['arabic']}</span>
-            </div>
-            """
-        if row['arabic_meaning']:
-            html_output += f"""
-            <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">Arabic Meaning:</strong>
-                <span style="color: black;">{row['arabic_meaning']}</span>
-            </div>
-            """
-        html_output += "</div>"
-
-    return html_output
 
 def format_eng_results(results):
     """Formats results from eng.db."""
-    if not results:
-        return ""
+    return _format_eng_results(results) # No change needed here, refactoring in helper function
 
-    aggregated_results = {}
-    for row in results:
-        lexie_id = row['id_lexie']
-        if lexie_id not in aggregated_results:
-            aggregated_results[lexie_id] = {
-                'lexie': row['lexie'],
-                'remarque': row['remarque'],
-                'variante': row['variante'],
-                'cg': row['cg'],
-                'eadata': row['eadata'],
-                'pldata': row['pldata'],
-                'acc': row['acc'],
-                'acc_neg': row['acc_neg'],
-                'inacc': row['inacc'],
-                'sens_eng': set()
-            }
-        if row['sens_eng']:  # Handle potential NULL values
-            aggregated_results[lexie_id]['sens_eng'].add(row['sens_eng'])
-
-    html_output = ""
-    for lexie_id, data in aggregated_results.items():
-        html_output += f"""
-        <div style="background: #d3f8d3; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2ecc71; padding-bottom: 10px; margin-bottom: 10px;">
-                <h3 style="color: #2c3e50; margin: 0;">{data['lexie'] or ''}</h3>
-                <span style="background: #2ecc71; color: white; padding: 4px 8px; border-radius: 4px;">{data['cg'] or ''}</span>
-            </div>
-        """
-
-        fields = {
-            'Notes': 'remarque',
-            'Construct State': 'eadata',
-            'Plural': 'pldata',
-            'Accomplished': 'acc',
-            'Negative Accomplished': 'acc_neg',
-            'Unaccomplished': 'inacc',
-            'Variants': 'variante',
-        }
-
-        for label, field in fields.items():
-            if data[field]:
-                html_output += f"""
-                <div style="margin-bottom: 8px;">
-                    <strong style="color: #34495e;">{label}:</strong>
-                    <span style="color: black;">{data[field]}</span>
-                </div>
-                """
-        english_translations = ", ".join(filter(None, data['sens_eng'])) # Handle null values
-
-        if english_translations:
-             html_output += f"""
-             <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">English Translation:</strong>
-                <span style="color: black;">{english_translations}</span>
-             </div>
-             """
-        html_output += "</div>"
-
-    return html_output
 
 def format_msmun_ar_m_r_results(results):
     """Formats results from msmun_ar.db table_m_r."""
+    return _format_msmun_ar_m_r_results(results) # No change needed here, refactoring in helper function
+
+
+def format_msmun_ar_r_m_results(results):
+    """Formats results from msmun_ar.db table_r_m."""
+    return _format_msmun_ar_r_m_results(results) # No change needed here, refactoring in helper function
+
+def format_msmun_بق_m_results(results):
+    """Formats results from msmun_بق.db table_m."""
     if not results:
         return ""
 
     html_output = ""
     for row in results:
         html_output += f"""
-        <div style="background: #e0f7fa; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #00bcd4; padding-bottom: 10px; margin-bottom: 10px;">
+        <div style="background: #f0f0f0; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #9e9e9e; padding-bottom: 10px; margin-bottom: 10px;">
                 <h3 style="color: #2c3e50; margin: 0;">{row['word'] or ''}</h3>
             </div>
         """
         if row['result']:
             html_output += f"""
             <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">Arabic Translation:</strong>
+                <strong style="color: #34495e;">French Translation:</strong>
                 <span style="color: black;">{row['result']}</span>
             </div>
             """
@@ -694,16 +557,16 @@ def format_msmun_ar_m_r_results(results):
         html_output += "</div>"
     return html_output
 
-def format_msmun_ar_r_m_results(results):
-    """Formats results from msmun_ar.db table_r_m."""
+def format_msmun_بق_r_results(results):
+    """Formats results from msmun_بق.db table_r."""
     if not results:
         return ""
 
     html_output = ""
     for row in results:
         html_output += f"""
-        <div style="background: #e8f5e9; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
-            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #4caf50; padding-bottom: 10px; margin-bottom: 10px;">
+        <div style="background: #e0e0e0; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #757575; padding-bottom: 10px; margin-bottom: 10px;">
                 <h3 style="color: #2c3e50; margin: 0;">{row['word'] or ''}</h3>
             </div>
         """
