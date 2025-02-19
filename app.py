@@ -36,7 +36,7 @@ def search_dictionary(query):
         OR fea LIKE ?
         OR fpel LIKE ?
         OR fpea LIKE ?
-        GROUP BY lexie.id_lexie, sens.sens_fr, sens.sens_ar  -- Group by lexie.id_lexie AND sens columns
+        ORDER BY lexie.id_lexie  -- Order by lexie.id_lexie to group same words together
         LIMIT 50
     """, (start_search_term, start_search_term, start_search_term, start_search_term, start_search_term,
           start_search_term, start_search_term, start_search_term, start_search_term, start_search_term,
@@ -63,7 +63,7 @@ def search_dictionary(query):
         OR fpel LIKE ?
         OR fpea LIKE ?)
         AND NOT lexie LIKE ?  -- Exclude only if lexie starts with the search term
-        GROUP BY lexie.id_lexie, sens.sens_fr, sens.sens_ar  -- Group by lexie.id_lexie AND sens columns
+        ORDER BY lexie.id_lexie  -- Order by lexie.id_lexie to group same words together
         LIMIT 50
     """, (contain_search_term, contain_search_term, contain_search_term, contain_search_term, contain_search_term,
           contain_search_term, contain_search_term, contain_search_term, contain_search_term, contain_search_term,
@@ -78,19 +78,45 @@ def search_dictionary(query):
     if not results:
         return "No results found"
 
-    # Format results as HTML
+    # Aggregate results by lexie.id_lexie
+    aggregated_results = {}
+    for row in results:
+        lexie_id = row['id_lexie']
+        if lexie_id not in aggregated_results:
+            aggregated_results[lexie_id] = {
+                'lexie': row['lexie'],
+                'api': row['api'],
+                'remarque': row['remarque'],
+                'variante': row['variante'],
+                'cg': row['cg'],
+                'eadata': row['eadata'],
+                'pldata': row['pldata'],
+                'acc': row['acc'],
+                'acc_neg': row['acc_neg'],
+                'inacc': row['inacc'],
+                'fel': row['fel'],
+                'fea': row['fea'],
+                'fpel': row['fpel'],
+                'fpea': row['fpea'],
+                'sens_frs': [],  # List to store French translations
+                'sens_ars': []   # List to store Arabic translations
+            }
+        aggregated_results[lexie_id]['sens_frs'].append(row['sens_fr'])
+        aggregated_results[lexie_id]['sens_ars'].append(row['sens_ar'])
+
+    # Format aggregated results as HTML
     html_output = ""
-    for row in results[:50]: # Limit to 50 after combining
+    for lexie_id, data in list(aggregated_results.items())[:50]: # Limit to 50 aggregated results
         html_output += f"""
         <div style="background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">
-                <h3 style="color: #2c3e50; margin: 0;">{row['lexie'] or ''}</h3>
-                <span style="background: #3498db; color: white; padding: 4px 8px; border-radius: 4px;">{row['cg'] or ''}</span>
+                <h3 style="color: #2c3e50; margin: 0;">{data['lexie'] or ''}</h3>
+                <span style="background: #3498db; color: white; padding: 4px 8px; border-radius: 4px;">{data['cg'] or ''}</span>
             </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px;">
         """
 
-        # Add fields if they exist
+        # Add fields if they exist (excluding translations for now)
         fields = {
             'Transcription': 'api',
             'Notes': 'remarque',
@@ -104,18 +130,36 @@ def search_dictionary(query):
             'Feminine Construct': 'fea',
             'Feminine Plural': 'fpel',
             'Feminine Plural Construct': 'fpea',
-            'French Translation': 'sens_fr',
-            'Arabic Translation': 'sens_ar'
         }
 
         for label, field in fields.items():
-            if row[field]:
+            if data[field]:
                 html_output += f"""
                 <div style="margin-bottom: 8px;">
                     <strong style="color: #34495e;">{label}:</strong>
-                    <span style="color: black;">{row[field]}</span>
+                    <span style="color: black;">{data[field]}</span>
                 </div>
                 """
+
+        # Display translations with commas
+        french_translations = ", ".join(filter(None, set(data['sens_frs']))) # Remove None and duplicates, then join
+        arabic_translations = ", ".join(filter(None, set(data['sens_ars'])))  # Remove None and duplicates, then join
+
+        if french_translations:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">French Translation:</strong>
+                <span style="color: black;">{french_translations}</span>
+            </div>
+            """
+        if arabic_translations:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Arabic Translation:</strong>
+                <span style="color: black;">{arabic_translations}</span>
+            </div>
+            """
+
 
         html_output += "</div></div>"
 
