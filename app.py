@@ -148,7 +148,7 @@ def search_dictionary(query):
                 <h3 style="color: #2c3e50; margin: 0;">{data['lexie'] or ''}</h3>
                 <span style="background: #3498db; color: white; padding: 4px 8px; border-radius: 4px;">{data['cg'] or ''}</span>
             </div>
-            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 2px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px;">
         """
 
         fields = {
