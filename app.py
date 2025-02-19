@@ -69,15 +69,23 @@ def search_dictionary(query):
 
     # --- Search tawalt.db (Secondary) ---
     # Only search tawalt if dglai14 returns fewer than 50 results
-    if len(dglai14_results) < 50:
-        remaining_count = 50 - len(dglai14_results)
-        tawalt_results = search_tawalt(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, remaining_count)
+    remaining_results = 50 - len(dglai14_results)
+    if remaining_results > 0:
+        tawalt_results = search_tawalt(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
+        remaining_results -= len(tawalt_results)
     else:
         tawalt_results = []  # No need to search tawalt
+
+    # --- Search eng.db (Tertiary) ---
+    if remaining_results > 0:
+      eng_results = search_eng(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
+    else:
+      eng_results = []
 
     # --- Combine and Format Results ---
     html_output = format_dglai14_results(dglai14_results)  # Format dglai14 results
     html_output += format_tawalt_results(tawalt_results) # Format tawalt results (if any)
+    html_output += format_eng_results(eng_results)
 
     if not html_output:
         return "No results found"
@@ -208,6 +216,62 @@ def search_tawalt(start_search_term_general, contain_search_term_general,start_s
           start_search_term_amazigh, limit)) # Use start_search_term_amazigh for NOT LIKE
     contain_results = cursor.fetchall()
     conn.close()
+    return list(start_results) + list(contain_results)
+
+def search_eng(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit):
+    conn = get_db_connection('eng.db')
+    cursor = conn.cursor()
+    conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
+
+    cursor.execute("""
+        SELECT da.*, dea.sens_eng
+        FROM Dictionary_Amazigh_full AS da
+        LEFT JOIN Dictionary_English_Amazih_links AS dea ON da.id_lexie = dea.id_lexie
+        WHERE (
+            NORMALIZE_AMAZIGH(da.lexie) LIKE ?
+            OR LOWER(da.remarque) LIKE ?
+            OR LOWER(da.variante) LIKE ?
+            OR LOWER(da.cg) LIKE ?
+            OR LOWER(da.eadata) LIKE ?
+            OR LOWER(da.pldata) LIKE ?
+            OR LOWER(da.acc) LIKE ?
+            OR LOWER(da.acc_neg) LIKE ?
+            OR LOWER(da.inacc) LIKE ?
+            OR LOWER(dea.sens_eng) LIKE ?
+        )
+        ORDER BY da.id_lexie
+        LIMIT ?
+    """, (start_search_term_amazigh, start_search_term_general, start_search_term_general, start_search_term_general,
+          start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
+          start_search_term_general, start_search_term_general, limit))
+
+    start_results = cursor.fetchall()
+
+    cursor.execute("""
+      SELECT da.*, dea.sens_eng
+        FROM Dictionary_Amazigh_full AS da
+        LEFT JOIN Dictionary_English_Amazih_links AS dea ON da.id_lexie = dea.id_lexie
+        WHERE (
+            NORMALIZE_AMAZIGH(da.lexie) LIKE ?
+            OR LOWER(da.remarque) LIKE ?
+            OR LOWER(da.variante) LIKE ?
+            OR LOWER(da.cg) LIKE ?
+            OR LOWER(da.eadata) LIKE ?
+            OR LOWER(da.pldata) LIKE ?
+            OR LOWER(da.acc) LIKE ?
+            OR LOWER(da.acc_neg) LIKE ?
+            OR LOWER(da.inacc) LIKE ?
+            OR LOWER(dea.sens_eng) LIKE ?
+        )
+        AND NOT NORMALIZE_AMAZIGH(da.lexie) LIKE ?
+        ORDER BY da.id_lexie
+        LIMIT ?
+    """, (contain_search_term_amazigh, contain_search_term_general, contain_search_term_general, contain_search_term_general,
+          contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
+          contain_search_term_general, contain_search_term_general, start_search_term_amazigh, limit))
+    contain_results = cursor.fetchall()
+    conn.close()
+
     return list(start_results) + list(contain_results)
 
 def format_dglai14_results(results):
@@ -365,6 +429,71 @@ def format_tawalt_results(results):
                 <span style="color: black;">{row['arabic_meaning']}</span>
             </div>
             """
+        html_output += "</div>"
+
+    return html_output
+
+def format_eng_results(results):
+    """Formats results from eng.db."""
+    if not results:
+        return ""
+
+    aggregated_results = {}
+    for row in results:
+        lexie_id = row['id_lexie']
+        if lexie_id not in aggregated_results:
+            aggregated_results[lexie_id] = {
+                'lexie': row['lexie'],
+                'remarque': row['remarque'],
+                'variante': row['variante'],
+                'cg': row['cg'],
+                'eadata': row['eadata'],
+                'pldata': row['pldata'],
+                'acc': row['acc'],
+                'acc_neg': row['acc_neg'],
+                'inacc': row['inacc'],
+                'sens_eng': set()
+            }
+        if row['sens_eng']:  # Handle potential NULL values
+            aggregated_results[lexie_id]['sens_eng'].add(row['sens_eng'])
+
+    html_output = ""
+    for lexie_id, data in aggregated_results.items():
+        html_output += f"""
+        <div style="background: #d3f8d3; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2ecc71; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{data['lexie'] or ''}</h3>
+                <span style="background: #2ecc71; color: white; padding: 4px 8px; border-radius: 4px;">{data['cg'] or ''}</span>
+            </div>
+        """
+
+        fields = {
+            'Notes': 'remarque',
+            'Construct State': 'eadata',
+            'Plural': 'pldata',
+            'Accomplished': 'acc',
+            'Negative Accomplished': 'acc_neg',
+            'Unaccomplished': 'inacc',
+            'Variants': 'variante',
+        }
+
+        for label, field in fields.items():
+            if data[field]:
+                html_output += f"""
+                <div style="margin-bottom: 8px;">
+                    <strong style="color: #34495e;">{label}:</strong>
+                    <span style="color: black;">{data[field]}</span>
+                </div>
+                """
+        english_translations = ", ".join(filter(None, data['sens_eng'])) # Handle null values
+
+        if english_translations:
+             html_output += f"""
+             <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">English Translation:</strong>
+                <span style="color: black;">{english_translations}</span>
+             </div>
+             """
         html_output += "</div>"
 
     return html_output
