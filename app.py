@@ -17,7 +17,7 @@ def search_dictionary(query):
     start_search_term = f"{query}%"
     contain_search_term = f"%{query}%"
 
-    # Query for results starting with the search term
+    # Query for results starting with the search term (in any field)
     cursor.execute("""
         SELECT lexie.*, sens.sens_fr, sens.sens_ar
         FROM lexie
@@ -42,7 +42,7 @@ def search_dictionary(query):
           start_search_term, start_search_term, start_search_term, start_search_term))
     start_results = cursor.fetchall()
 
-    # Query for results containing the search term (but not starting, to avoid duplicates in priority results)
+    # Query for results containing the search term (in any field), but NOT starting with in lexie field
     cursor.execute("""
         SELECT lexie.*, sens.sens_fr, sens.sens_ar
         FROM lexie
@@ -61,27 +61,12 @@ def search_dictionary(query):
         OR fea LIKE ?
         OR fpel LIKE ?
         OR fpea LIKE ?)
-        AND NOT (lexie LIKE ?
-        OR api LIKE ?
-        OR remarque LIKE ?
-        OR variante LIKE ?
-        OR cg LIKE ?
-        OR eadata LIKE ?
-        OR pldata LIKE ?
-        OR acc LIKE ?
-        OR acc_neg LIKE ?
-        OR inacc LIKE ?
-        OR fel LIKE ?
-        OR fea LIKE ?
-        OR fpel LIKE ?
-        OR fpea LIKE ?)
+        AND NOT lexie LIKE ?  -- Exclude only if lexie starts with the search term
         LIMIT 50
     """, (contain_search_term, contain_search_term, contain_search_term, contain_search_term, contain_search_term,
           contain_search_term, contain_search_term, contain_search_term, contain_search_term, contain_search_term,
           contain_search_term, contain_search_term, contain_search_term, contain_search_term,
-          start_search_term, start_search_term, start_search_term, start_search_term, start_search_term,
-          start_search_term, start_search_term, start_search_term, start_search_term, start_search_term,
-          start_search_term, start_search_term, start_search_term, start_search_term))
+          start_search_term)) # Using start_search_term for the NOT lexie LIKE condition
     contain_results = cursor.fetchall()
 
     conn.close()
