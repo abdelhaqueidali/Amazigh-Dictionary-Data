@@ -214,7 +214,7 @@ def search_dictionary(query):
             """
             for exp_data in data['expressions']:
                 html_output += f"""
-                <div style="margin-top: 6px; padding-left: 15px;">
+                <div style="margin-top: 6px; padding-left: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px;">
                     <div style="margin-bottom: 4px;">
                         <strong style="color: #546e7a;">Amazigh:</strong>
                         <span style="color: black;">{exp_data['exp_amz'] or ''}</span>
