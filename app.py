@@ -125,7 +125,7 @@ def search_dictionary(query):
     if not results:
         return "No results found"
 
-    # Aggregate results by lexie.id_lexie, now including expressions
+    # Aggregate results by lexie.id_lexie, now handling duplicate expressions based on exp_amz
     aggregated_results = {}
     for row in results:
         lexie_id = row['id_lexie']
@@ -145,16 +145,23 @@ def search_dictionary(query):
                 'fea': row['fea'],
                 'fpel': row['fpel'],
                 'fpea': row['fpea'],
-                'sens_fr': row['sens_fr'], # Take the first sens_fr, as it's the same for all expressions of the same lexie
-                'sens_ar': row['sens_ar'], # Take the first sens_ar for the same reason
-                'expressions': [] # List to hold expressions and their translations
+                'sens_frs': set(),
+                'sens_ars': set(),
+                'expressions': {} # Change to dictionary to store unique exp_amz
             }
-        if row['exp_amz']: # Only add if exp_amz is not None
-            aggregated_results[lexie_id]['expressions'].append({
-                'exp_amz': row['exp_amz'],
-                'exp_fr': row['exp_fr'],
-                'exp_ar': row['exp_ar']
-            })
+        aggregated_results[lexie_id]['sens_frs'].add(row['sens_fr'])
+        aggregated_results[lexie_id]['sens_ars'].add(row['sens_ar'])
+        if row['exp_amz']:
+            exp_amz = row['exp_amz']
+            if exp_amz not in aggregated_results[lexie_id]['expressions']:
+                aggregated_results[lexie_id]['expressions'][exp_amz] = {
+                    'french_translations': set(),
+                    'arabic_translations': set()
+                }
+            if row['exp_fr']:
+                aggregated_results[lexie_id]['expressions'][exp_amz]['french_translations'].add(row['exp_fr'])
+            if row['exp_ar']:
+                aggregated_results[lexie_id]['expressions'][exp_amz]['arabic_translations'].add(row['exp_ar'])
 
 
     # Format aggregated results as HTML
@@ -192,18 +199,21 @@ def search_dictionary(query):
                 </div>
                 """
 
-        if data['sens_fr']:
+        french_translations = ", ".join(filter(None, data['sens_frs']))
+        arabic_translations = ", ".join(filter(None, data['sens_ars']))
+
+        if french_translations:
             html_output += f"""
             <div style="margin-bottom: 8px;">
                 <strong style="color: #34495e;">French Translation:</strong>
-                <span style="color: black;">{data['sens_fr']}</span>
+                <span style="color: black;">{french_translations}</span>
             </div>
             """
-        if data['sens_ar']:
+        if arabic_translations:
             html_output += f"""
             <div style="margin-bottom: 8px;">
                 <strong style="color: #34495e;">Arabic Translation:</strong>
-                <span style="color: black;">{data['sens_ar']}</span>
+                <span style="color: black;">{arabic_translations}</span>
             </div>
             """
 
@@ -212,25 +222,33 @@ def search_dictionary(query):
             <div style="margin-top: 10px; border-top: 1px solid #ddd; padding-top: 10px;">
                 <strong style="color: #34495e;">Expressions:</strong>
             """
-            for exp_data in data['expressions']:
+            for exp_amz, translations in data['expressions'].items(): # Iterate through expression dictionary
+                french_exp_translations = ", ".join(filter(None, translations['french_translations']))
+                arabic_exp_translations = ", ".join(filter(None, translations['arabic_translations']))
+
                 html_output += f"""
                 <div style="margin-top: 6px; padding-left: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px;">
                     <div style="margin-bottom: 4px;">
                         <strong style="color: #546e7a;">Amazigh:</strong>
-                        <span style="color: black;">{exp_data['exp_amz'] or ''}</span>
+                        <span style="color: black;">{exp_amz or ''}</span>
                     </div>
+                    """
+                if french_exp_translations:
+                    html_output += f"""
                     <div style="margin-bottom: 4px;">
                         <strong style="color: #546e7a;">French:</strong>
-                        <span style="color: black;">{exp_data['exp_fr'] or ''}</span>
+                        <span style="color: black;">{french_exp_translations or ''}</span>
                     </div>
+                    """
+                if arabic_exp_translations:
+                    html_output += f"""
                     <div>
                         <strong style="color: #546e7a;">Arabic:</strong>
-                        <span style="color: black;">{exp_data['exp_ar'] or ''}</span>
+                        <span style="color: black;">{arabic_exp_translations or ''}</span>
                     </div>
-                </div>
-                """
+                    """
+                html_output += "</div>"
             html_output += "</div>"
-
 
         html_output += "</div></div>"
 
