@@ -3,9 +3,18 @@ import sqlite3
 from pathlib import Path
 import unicodedata
 
+def remove_diacritics(text):
+    """Removes diacritics from Arabic text (and any other text)."""
+    if text is None:  # Handle potential NULL values
+        return None
+    return ''.join(c for c in unicodedata.normalize('NFD', text)
+                   if unicodedata.category(c) != 'Mn')
+
 def get_db_connection():
     conn = sqlite3.connect('dglai14.db')
     conn.row_factory = sqlite3.Row
+    # Create the custom SQLite function
+    conn.create_function("REMOVE_DIACRITICS", 1, remove_diacritics)
     return conn
 
 def normalize_french_text(text):
@@ -16,12 +25,17 @@ def normalize_french_text(text):
     return normalized_text.lower()
 
 def normalize_arabic_text(text):
-    """Normalize Arabic text by removing diacritics and unifying similar characters."""
+    """Normalize Arabic text by unifying similar characters (Alif)."""
     if not text:
         return text
     text = text.replace("أ", "ا").replace("إ", "ا").replace("آ", "ا") # unify alif forms
-    normalized_text = ''.join(c for c in unicodedata.normalize('NFD', text) if unicodedata.category(c) != 'Mn') # remove diacritics - RE-ENABLED
-    return normalized_text
+    return text.lower() # Keep lowercasing for consistency
+
+def normalize_general_text(text): #Add general normalization
+    if not text:
+        return text
+    text = normalize_arabic_text(text)
+    return remove_diacritics(text)
 
 def search_dictionary(query):
     if not query or len(query.strip()) < 1:
@@ -31,13 +45,13 @@ def search_dictionary(query):
     cursor = conn.cursor()
 
     normalized_query_french = normalize_french_text(query)
-    normalized_query_arabic = normalize_arabic_text(query)
-    normalized_query_general = normalize_arabic_text(query) # Use arabic normalization for general search
+    #normalized_query_arabic = normalize_arabic_text(query) # No longer needed
+    normalized_query_general = normalize_general_text(query) # Use general normalization
 
     start_search_term_french = f"{normalized_query_french}%"
     contain_search_term_french = f"%{normalized_query_french}%"
-    start_search_term_arabic = f"{normalized_query_arabic}%"
-    contain_search_term_arabic = f"%{normalized_query_arabic}%"
+    #start_search_term_arabic = f"{normalized_query_arabic}%" # No longer needed
+    #contain_search_term_arabic = f"%{normalized_query_arabic}%" # No longer needed
     start_search_term_general = f"{normalized_query_general}%"
     contain_search_term_general = f"%{normalized_query_general}%"
 
@@ -50,33 +64,33 @@ def search_dictionary(query):
         LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
         LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
         WHERE
-        (REPLACE(REPLACE(REPLACE(lower(lexie), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(api), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(remarque), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(variante), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(cg), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(eadata), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(pldata), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(acc), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(acc_neg), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(inacc), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(fel), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(fea), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(fpel), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(fpea), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (lower(sens_fr) LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(sens_ar), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(expression.exp_amz), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (lower(expression.exp_fr) LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(expression.exp_ar), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        (REMOVE_DIACRITICS(LOWER(lexie)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(api)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(remarque)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(variante)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(cg)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(eadata)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(pldata)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(acc)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(acc_neg)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(inacc)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fel)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fea)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fpel)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fpea)) LIKE ?)
+        OR (LOWER(sens_fr) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(sens_ar)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(expression.exp_amz)) LIKE ?)
+        OR (LOWER(expression.exp_fr) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) LIKE ?)
 
         ORDER BY lexie.id_lexie
         LIMIT 50
     """, (start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
           start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
           start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
-          start_search_term_french, start_search_term_arabic,
-          start_search_term_general, start_search_term_french, start_search_term_arabic)) # Apply french and arabic normalization to respective sens columns
+          start_search_term_french, start_search_term_general,  # Use general normalization for all Arabic fields
+          start_search_term_general, start_search_term_french, start_search_term_general)) # Use general normalization for all Arabic fields
     start_results = cursor.fetchall()
 
     # Query for results containing the search term (in any field), but NOT starting with in lexie field
@@ -87,35 +101,35 @@ def search_dictionary(query):
         LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
         LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
         WHERE (
-        (REPLACE(REPLACE(REPLACE(lower(lexie), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(api), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(remarque), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(variante), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(cg), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(eadata), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(pldata), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(acc), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(acc_neg), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(inacc), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(fel), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(fea), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(fpel), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(fpea), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (lower(sens_fr) LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(sens_ar), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(expression.exp_amz), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
-        OR (lower(expression.exp_fr) LIKE ?)
-        OR (REPLACE(REPLACE(REPLACE(lower(expression.exp_ar), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        (REMOVE_DIACRITICS(LOWER(lexie)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(api)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(remarque)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(variante)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(cg)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(eadata)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(pldata)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(acc)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(acc_neg)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(inacc)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fel)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fea)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fpel)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fpea)) LIKE ?)
+        OR (LOWER(sens_fr) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(sens_ar)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(expression.exp_amz)) LIKE ?)
+        OR (LOWER(expression.exp_fr) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) LIKE ?)
         )
-        AND NOT (REPLACE(REPLACE(REPLACE(lower(lexie), 'أ', 'ا'), 'إ', 'ا'), 'آ', 'ا') LIKE ?)
+        AND NOT (REMOVE_DIACRITICS(LOWER(lexie)) LIKE ?)
         ORDER BY lexie.id_lexie
         LIMIT 50
     """, (contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
           contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
           contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
-          contain_search_term_french, contain_search_term_arabic,
-          contain_search_term_general, contain_search_term_french, contain_search_term_arabic,
-          start_search_term_general)) # Using general normalization for NOT lexie LIKE condition and french/arabic for sens columns
+          contain_search_term_french, contain_search_term_general,  # Use general normalization for all Arabic fields
+          contain_search_term_general, contain_search_term_french, contain_search_term_general,
+          start_search_term_general)) # Use general normalization for NOT LIKE
     contain_results = cursor.fetchall()
 
     conn.close()
