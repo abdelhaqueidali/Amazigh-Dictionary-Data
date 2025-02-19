@@ -692,7 +692,7 @@ def search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, 
     query_parts.append(f"(REMOVE_DIACRITICS(LOWER(word)) {like_op_start} ?)")
     params_start.append(start_search_term_general)
     query_parts.append(f"(REMOVE_DIACRITICS(LOWER(word)) {like_op_contain} ?)")
-    params_contain.append(contain_search_term_general)
+    params_contain.append(start_search_term_general)
 
 
     start_query_where = " OR ".join(query_parts[::2]) # Take even indices for start
@@ -1030,7 +1030,7 @@ def format_msmun_fr_r_results(results):
         if row['result']:
             html_output += f"""
             <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">Amazigh Translation:</strong>
+                <strong style="color: #34495e;">Arabic Translation:</strong>
                 <span style="color: black;">{row['result']}</span>
             </div>
             """
@@ -1099,14 +1099,14 @@ def format_msmun_ar_r_m_results(results):
         html_output += f"""
         <div style="background: #e8f5e9; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #4caf50; padding-bottom: 10px; margin-bottom: 10px;">
-                <h3 style="color: #2c3e50; margin: 0;">{row['word'] or ''}</h3>
+                <h3 style="color: #2c3e50; margin: 0;">{row['result'] or ''}</h3>
             </div>
         """
-        if row['result']:
+        if row['word']:
             html_output += f"""
             <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">Amazigh Translation:</strong>
-                <span style="color: black;">{row['result']}</span>
+                <strong style="color: #34495e;">Arabic Translation:</strong>
+                <span style="color: black;">{row['word']}</span>
             </div>
             """
         if row['edited'] and row['edited'].lower() == 'true':
