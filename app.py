@@ -147,7 +147,9 @@ def search_dictionary(query, language, exact_match):
         normalized_query_arabic = normalize_general_text(query) # Using general for arabic normalization
         search_term_arabic_exact = normalized_query_arabic if exact_match else f"{normalized_query_arabic}%"
         search_term_arabic_contain = normalized_query_arabic if exact_match else f"%{normalized_query_arabic}%"
-
+        dglai14_results = search_dglai14(search_term_arabic_exact, search_term_arabic_contain, "", "", exact_match) # Include dglai14 for Arabic search
+        remaining_results = 50 - len(dglai14_results)
+        
         tawalt_results = search_tawalt(search_term_arabic_exact, search_term_arabic_contain, "", "", 50, exact_match, arabic_only=True) # Arabic only search in tawalt
         remaining_results = 50 - len(tawalt_results)
         dglai14_results = []
