@@ -644,7 +644,7 @@ def format_tawalt_results(results):
     html_output = ""
     for row in results:
         html_output += f"""
-        <div style="background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+        <div style="background: #fffacd; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">
                 <h3 style="color: #2c3e50; margin: 0;">{row['tifinagh'] or ''}</h3>
             </div>
