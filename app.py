@@ -67,16 +67,22 @@ def search_dictionary(query):
     # --- Search dglai14.db (Prioritized) ---
     dglai14_results = search_dglai14(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh)
 
-    # --- Search tawalt.db (Secondary) ---
-    # Only search tawalt if dglai14 returns fewer than 50 results
+    # --- Search tawalt_fr.db (Secondary) ---
     remaining_results = 50 - len(dglai14_results)
+    if remaining_results > 0:
+        tawalt_fr_results = search_tawalt_fr(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
+        remaining_results -= len(tawalt_fr_results)
+    else:
+        tawalt_fr_results = []
+
+    # --- Search tawalt.db (Tertiary) ---
     if remaining_results > 0:
         tawalt_results = search_tawalt(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
         remaining_results -= len(tawalt_results)
     else:
         tawalt_results = []  # No need to search tawalt
 
-    # --- Search eng.db (Tertiary) ---
+    # --- Search eng.db (Quaternary) ---
     if remaining_results > 0:
       eng_results = search_eng(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
     else:
@@ -84,6 +90,7 @@ def search_dictionary(query):
 
     # --- Combine and Format Results ---
     html_output = format_dglai14_results(dglai14_results)  # Format dglai14 results
+    html_output += format_tawalt_fr_results(tawalt_fr_results) # Format tawalt_fr results
     html_output += format_tawalt_results(tawalt_results) # Format tawalt results (if any)
     html_output += format_eng_results(eng_results)
 
@@ -119,7 +126,7 @@ def search_dglai14(start_search_term_general, contain_search_term_general,start_
         OR (REMOVE_DIACRITICS(LOWER(inacc)) LIKE ?)
         OR (REMOVE_DIACRITICS(LOWER(fel)) LIKE ?)
         OR (REMOVE_DIACRITICS(LOWER(fea)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(fpel)) LIKE ?)
+        OR (REMOVE_diacritics(LOWER(fpel)) LIKE ?)
         OR (REMOVE_DIACRITICS(LOWER(fpea)) LIKE ?)
         OR (REMOVE_DIACRITICS(LOWER(sens_ar)) LIKE ?)
         OR (NORMALIZE_AMAZIGH(expression.exp_amz) LIKE ?) -- Use NORMALIZE_AMAZIGH for exp_amz
@@ -169,6 +176,43 @@ def search_dglai14(start_search_term_general, contain_search_term_general,start_
     contain_results = cursor.fetchall()
     conn.close()
     return list(start_results) + list(contain_results)
+
+def search_tawalt_fr(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit):
+    conn = get_db_connection('tawalt_fr.db')
+    cursor = conn.cursor()
+
+    # Add the custom SQLite function for Amazigh normalization
+    conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
+    conn.create_function("NORMALIZE_FRENCH", 1, normalize_french_text)
+
+    # Start Search (tawalt_fr)
+    cursor.execute("""
+        SELECT *
+        FROM words
+        WHERE
+        (NORMALIZE_AMAZIGH(tifinagh) LIKE ?)
+        OR (NORMALIZE_FRENCH(french) LIKE ?)
+        ORDER BY _id
+        LIMIT ?
+    """, (start_search_term_amazigh, start_search_term_general, limit))
+    start_results = cursor.fetchall()
+
+    # Contain Search (tawalt_fr)
+    cursor.execute("""
+        SELECT *
+        FROM words
+        WHERE (
+        (NORMALIZE_AMAZIGH(tifinagh) LIKE ?)
+        OR (NORMALIZE_FRENCH(french) LIKE ?)
+        )
+        AND NOT (NORMALIZE_AMAZIGH(tifinagh) LIKE ?)
+        ORDER BY _id
+        LIMIT ?
+    """, (contain_search_term_amazigh, contain_search_term_general, start_search_term_amazigh, limit))
+    contain_results = cursor.fetchall()
+    conn.close()
+    return list(start_results) + list(contain_results)
+
 
 def search_tawalt(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, limit):
     conn = get_db_connection('tawalt.db')
@@ -401,6 +445,31 @@ def format_dglai14_results(results):
 
         html_output += "</div>"
     return html_output
+
+def format_tawalt_fr_results(results):
+    """Formats results from tawalt_fr.db."""
+    if not results:
+        return ""
+
+    html_output = ""
+    for row in results:
+        html_output += f"""
+        <div style="background: #ffe0b2; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ff9800; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{row['tifinagh'] or ''}</h3>
+            </div>
+        """
+        if row['french']:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">French:</strong>
+                <span style="color: black;">{row['french']}</span>
+            </div>
+            """
+        html_output += "</div>"
+
+    return html_output
+
 
 def format_tawalt_results(results):
     """Formats results from tawalt.db."""
