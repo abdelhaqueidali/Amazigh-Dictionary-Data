@@ -10,27 +10,29 @@ def get_db_connection():
 def search_dictionary(query):
     if not query or len(query.strip()) < 1:
         return "Please enter a search term"
-        
+
     conn = get_db_connection()
     cursor = conn.cursor()
-    
+
     search_term = f"%{query}%"
     cursor.execute("""
-        SELECT * FROM lexie 
-        WHERE lexie LIKE ? 
-        OR api LIKE ? 
-        OR remarque LIKE ? 
+        SELECT lexie.*, sens.sens_fr, sens.sens_ar
+        FROM lexie
+        LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
+        WHERE lexie LIKE ?
+        OR api LIKE ?
+        OR remarque LIKE ?
         OR variante LIKE ?
         OR cg LIKE ?
         LIMIT 50
     """, (search_term, search_term, search_term, search_term, search_term))
-    
+
     results = cursor.fetchall()
     conn.close()
-    
+
     if not results:
         return "No results found"
-    
+
     # Format results as HTML
     html_output = ""
     for row in results:
@@ -42,7 +44,7 @@ def search_dictionary(query):
             </div>
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px;">
         """
-        
+
         # Add fields if they exist
         fields = {
             'Transcription': 'api',
@@ -56,39 +58,41 @@ def search_dictionary(query):
             'Feminine': 'fel',
             'Feminine Construct': 'fea',
             'Feminine Plural': 'fpel',
-            'Feminine Plural Construct': 'fpea'
+            'Feminine Plural Construct': 'fpea',
+            'French Translation': 'sens_fr',  # Added French Translation
+            'Arabic Translation': 'sens_ar'   # Added Arabic Translation
         }
-        
+
         for label, field in fields.items():
             if row[field]:
                 html_output += f"""
                 <div style="margin-bottom: 8px;">
                     <strong style="color: #34495e;">{label}:</strong>
-                    <span>{row[field]}</span>
+                    <span style="color: black;">{row[field]}</span>
                 </div>
                 """
-        
+
         html_output += "</div></div>"
-    
+
     return html_output
 
 # Create Gradio interface
 with gr.Blocks(css="footer {display: none !important}") as iface:
     gr.HTML("""
-        <div style="text-align: center; margin-bottom: 2rem;">
-            <h1 style="color: #2c3e50; margin-bottom: 1rem;">Amazigh Dictionary</h1>
-        </div>
+    <div style="text-align: center; margin-bottom: 2rem;">
+    <h1 style="color: #2c3e50; margin-bottom: 1rem;">Amazigh Dictionary</h1>
+    </div>
     """)
-    
+
     with gr.Row():
         input_text = gr.Textbox(
             label="Search",
             placeholder="Enter a word to search...",
             lines=1
         )
-    
+
     output_html = gr.HTML()
-    
+
     input_text.change(
         fn=search_dictionary,
         inputs=input_text,
