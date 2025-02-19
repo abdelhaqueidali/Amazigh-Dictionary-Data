@@ -76,26 +76,26 @@ def search_dictionary(query, language, exact_match):
         dglai14_results = search_dglai14(search_term_general_start, search_term_general_contain, search_term_amazigh_start, search_term_amazigh_contain, exact_match)
         remaining_results = 50 - len(dglai14_results)
 
-        tawalt_fr_results = search_tawalt_fr(search_term_general_start, search_term_general_contain, search_term_amazigh_start, search_term_amazigh_contain, remaining_results, exact_match)
-        remaining_results -= len(tawalt_fr_results)
-
-        tawalt_results = search_tawalt(search_term_general_start, search_term_general_contain, search_term_amazigh_start, search_term_amazigh_contain, remaining_results, exact_match)
+        tawalt_results = search_tawalt(search_term_general_start, search_term_general_contain,start_search_term_amazigh, search_term_amazigh_contain, remaining_results, exact_match)
         remaining_results -= len(tawalt_results)
 
-        eng_results = search_eng(search_term_general_start, search_term_general_contain, search_term_amazigh_start, search_term_amazigh_contain, remaining_results, exact_match)
-        remaining_results -= len(eng_results)
-
-        msmun_fr_m_results = search_msmun_fr_m(search_term_general_start, search_term_general_contain, search_term_amazigh_start, search_term_amazigh_contain, remaining_results, exact_match)
-        remaining_results -= len(msmun_fr_m_results)
-
-        msmun_fr_r_results = search_msmun_fr_r(search_term_general_start, search_term_general_contain, search_term_amazigh_start, search_term_amazigh_contain, remaining_results, exact_match)
+        msmun_fr_r_results = search_msmun_fr_r(search_term_general_start, search_term_general_contain, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
         remaining_results -= len(msmun_fr_r_results)
 
-        msmun_ar_m_r_results = search_msmun_ar_m_r(search_term_general_start, search_term_general_contain, search_term_amazigh_start, search_term_amazigh_contain, remaining_results, exact_match)
-        remaining_results -= len(msmun_ar_m_r_results)
-
-        msmun_ar_r_m_results = search_msmun_ar_r_m(search_term_general_start, search_term_general_contain, search_term_amazigh_start, search_term_amazigh_contain, remaining_results, exact_match)
+        msmun_ar_r_m_results = search_msmun_ar_r_m(search_term_general_start, search_term_general_contain, contain_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
         remaining_results -= len(msmun_ar_r_m_results)
+
+        tawalt_fr_results = search_tawalt_fr(search_term_general_start, search_term_general_contain, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
+        remaining_results -= len(tawalt_fr_results)
+
+        eng_results = search_eng(search_term_general_start, search_term_general_contain, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
+        remaining_results -= len(eng_results)
+
+        msmun_fr_m_results = search_msmun_fr_m(search_term_general_start, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
+        remaining_results -= len(msmun_fr_m_results)
+
+        msmun_ar_m_r_results = search_msmun_ar_m_r(search_term_general_start, search_term_general_contain, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
+        remaining_results -= len(msmun_ar_m_r_results)
 
 
     elif language == "Amazigh":
@@ -105,16 +105,18 @@ def search_dictionary(query, language, exact_match):
 
         dglai14_results = search_dglai14(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, exact_match)
         remaining_results = 50 - len(dglai14_results)
-        tawalt_fr_results = search_tawalt_fr(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, remaining_results, exact_match)
-        remaining_results -= len(tawalt_fr_results)
         tawalt_results = search_tawalt(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, remaining_results, exact_match)
         remaining_results -= len(tawalt_results)
+        msmun_fr_r_results = search_msmun_fr_r(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, remaining_results, exact_match)
+        remaining_results -= len(msmun_fr_r_results)
+        msmun_ar_r_m_results = search_msmun_ar_r_m(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, remaining_results, exact_match)
+        remaining_results -= len(msmun_ar_r_m_results)
+        tawalt_fr_results = search_tawalt_fr(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, remaining_results, exact_match)
+        remaining_results -= len(tawalt_fr_results)
         eng_results = search_eng(search_term_amazigh_exact, search_term_amazigh_contain, search_term_amazigh_exact, search_term_amazigh_contain, remaining_results, exact_match)
         remaining_results -= len(eng_results)
         msmun_fr_m_results = []
-        msmun_fr_r_results = []
         msmun_ar_m_r_results = []
-        msmun_ar_r_m_results = []
 
 
     elif language == "French":
@@ -183,11 +185,17 @@ def search_dictionary(query, language, exact_match):
         dglai14_results = search_dglai14(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, exact_match)
         remaining_results = 50 - len(dglai14_results)
 
-        tawalt_fr_results = search_tawalt_fr(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
-        remaining_results -= len(tawalt_fr_results)
-
         tawalt_results = search_tawalt(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
         remaining_results -= len(tawalt_results)
+
+        msmun_fr_r_results = search_msmun_fr_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
+        remaining_results -= len(msmun_fr_r_results)
+
+        msmun_ar_r_m_results = search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, contain_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
+        remaining_results -= len(msmun_ar_r_m_results)
+
+        tawalt_fr_results = search_tawalt_fr(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
+        remaining_results -= len(tawalt_fr_results)
 
         eng_results = search_eng(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
         remaining_results -= len(eng_results)
@@ -195,25 +203,19 @@ def search_dictionary(query, language, exact_match):
         msmun_fr_m_results = search_msmun_fr_m(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
         remaining_results -= len(msmun_fr_m_results)
 
-        msmun_fr_r_results = search_msmun_fr_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
-        remaining_results -= len(msmun_fr_r_results)
-
         msmun_ar_m_r_results = search_msmun_ar_m_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
         remaining_results -= len(msmun_ar_m_r_results)
 
-        msmun_ar_r_m_results = search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, contain_search_term_amazigh, contain_search_term_amazigh, remaining_results, exact_match)
-        remaining_results -= len(msmun_ar_r_m_results)
 
-
-    # --- Combine and Format Results ---
+    # --- Combine and Format Results in Prioritized Amazigh Order ---
     html_output = format_dglai14_results(dglai14_results)  # Format dglai14 results
+    html_output += format_tawalt_results(tawalt_results) # Format tawalt results
+    html_output += format_msmun_fr_r_results(msmun_fr_r_results) # Format msmun_fr table_r results
+    html_output += format_msmun_ar_r_m_results(msmun_ar_r_m_results) # Format msmun_ar table_r_m results
     html_output += format_tawalt_fr_results(tawalt_fr_results) # Format tawalt_fr results
-    html_output += format_tawalt_results(tawalt_results) # Format tawalt results (if any)
     html_output += format_eng_results(eng_results)
     html_output += format_msmun_fr_m_results(msmun_fr_m_results) # Format msmun_fr table_m results
-    html_output += format_msmun_fr_r_results(msmun_fr_r_results) # Format msmun_fr table_r results
-    html_output += format_msmun_ar_m_r_results(msmun_ar_m_r_results)
-    html_output += format_msmun_ar_r_m_results(msmun_ar_r_m_results)
+    html_output += format_msmun_ar_m_r_results(msmun_ar_m_r_results) # Format msmun_ar table_m_r results
 
 
     if not html_output:
