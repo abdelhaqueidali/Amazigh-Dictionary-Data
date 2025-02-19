@@ -127,6 +127,21 @@ def search_dictionary(query, language, exact_match):
         msmun_ar_m_r_results = []
         msmun_ar_r_m_results = []
 
+    elif language == "English": # Added English Language Search
+        normalized_query_general = normalize_general_text(query) # Using general for english normalization
+        search_term_english_exact = normalized_query_general if exact_match else f"{normalized_query_general}%"
+        search_term_english_contain = normalized_query_general if exact_match else f"%{normalized_query_general}%"
+
+        eng_results = search_eng(search_term_english_exact, search_term_english_contain, "", "", 50, exact_match, english_only=True) # English only search in eng
+        remaining_results = 50 - len(eng_results)
+        dglai14_results = []
+        tawalt_fr_results = []
+        tawalt_results = []
+        msmun_ar_m_r_results = []
+        msmun_ar_r_m_results = []
+        msmun_fr_m_results = []
+        msmun_fr_r_results = []
+
 
     elif language == "Arabic":
         normalized_query_arabic = normalize_general_text(query) # Using general for arabic normalization
@@ -422,7 +437,7 @@ def search_tawalt(start_search_term_general, contain_search_term_general,start_s
     conn.close()
     return list(start_results) + list(contain_results)
 
-def search_eng(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit, exact_match):
+def search_eng(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit, exact_match, english_only=False): # added english_only parameter, though not used
     conn = get_db_connection('eng.db')
     cursor = conn.cursor()
     conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
@@ -879,17 +894,17 @@ def format_tawalt_results(results):
                 <h3 style="color: #2c3e50; margin: 0;">{row['tifinagh'] or ''}</h3>
             </div>
         """
-        if row['arabic']:
+        if row['arabic']: # Display Arabic as Translation under Amazigh
             html_output += f"""
             <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">Arabic:</strong>
+                <strong style="color: #34495e;">Arabic Translation:</strong>
                 <span style="color: black;">{row['arabic']}</span>
             </div>
             """
-        if row['arabic_meaning']:
+        if row['arabic_meaning']: # Display Arabic Meaning as Translation under Amazigh
             html_output += f"""
             <div style="margin-bottom: 8px;">
-                <strong style="color: #34495e;">Arabic Meaning:</strong>
+                <strong style="color: #34495e;">Arabic Meaning Translation:</strong>
                 <span style="color: black;">{row['arabic_meaning']}</span>
             </div>
             """
@@ -1129,7 +1144,7 @@ footer {display: none !important}
 
     with gr.Row():
         language_radio = gr.Radio(
-            ["General", "Amazigh", "French", "Arabic"],
+            ["General", "Amazigh", "French", "Arabic", "English"], # Added "English" to languages
             label="Language",
             value="General",
             interactive=True,
