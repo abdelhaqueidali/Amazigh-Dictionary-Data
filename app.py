@@ -52,115 +52,95 @@ def normalize_amazigh_text(text):
 
     return text.lower() # Return lowercase for consistence
 
-def search_dictionary(query, exact_search, language):
+def search_dictionary(query):
     if not query or len(query.strip()) < 1:
         return "Please enter a search term"
 
     normalized_query_general = normalize_general_text(query)
-    normalized_query_amazigh = normalize_amazigh_text(query)
+    start_search_term_general = f"{normalized_query_general}%"
+    contain_search_term_general = f"%{normalized_query_general}%"
 
-    if exact_search:
-        search_results = search_exact_mode(normalized_query_general, normalized_query_amazigh, language)
+    normalized_query_amazigh = normalize_amazigh_text(query)
+    start_search_term_amazigh = f"{normalized_query_amazigh}%"
+    contain_search_term_amazigh = f"%{normalized_query_amazigh}%"
+
+    # --- Search dglai14.db (Prioritized) ---
+    dglai14_results = search_dglai14(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh)
+
+    # --- Search tawalt_fr.db (Secondary) ---
+    remaining_results = 50 - len(dglai14_results)
+    if remaining_results > 0:
+        tawalt_fr_results = search_tawalt_fr(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
+        remaining_results -= len(tawalt_fr_results)
     else:
-        search_results = search_fuzzy_mode(normalized_query_general, normalized_query_amazigh, language)
+        tawalt_fr_results = []
+
+    # --- Search tawalt.db (Tertiary) ---
+    if remaining_results > 0:
+        tawalt_results = search_tawalt(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
+        remaining_results -= len(tawalt_results)
+    else:
+        tawalt_results = []  # No need to search tawalt
+
+    # --- Search eng.db (Quaternary) ---
+    if remaining_results > 0:
+      eng_results = search_eng(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
+      remaining_results -= len(eng_results)
+    else:
+      eng_results = []
+
+    # --- Search msmun_fr.db (Quinary) ---
+    if remaining_results > 0:
+        msmun_fr_m_results = search_msmun_fr_m(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
+        remaining_results -= len(msmun_fr_m_results)
+    else:
+        msmun_fr_m_results = []
+
+    if remaining_results > 0:
+        msmun_fr_r_results = search_msmun_fr_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
+        remaining_results -= len(msmun_fr_r_results)
+    else:
+        msmun_fr_r_results = []
+
+    # --- Search msmun_ar.db (Senary) ---
+    if remaining_results > 0:
+        msmun_ar_m_r_results = search_msmun_ar_m_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
+        remaining_results -= len(msmun_ar_m_r_results)
+    else:
+        msmun_ar_m_r_results = []
+
+    if remaining_results > 0:
+        msmun_ar_r_m_results = search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
+        remaining_results -= len(msmun_ar_r_m_results)
+    else:
+        msmun_ar_r_m_results = []
+
 
     # --- Combine and Format Results ---
-    html_output = format_results(search_results)
+    html_output = format_dglai14_results(dglai14_results)  # Format dglai14 results
+    html_output += format_tawalt_fr_results(tawalt_fr_results) # Format tawalt_fr results
+    html_output += format_tawalt_results(tawalt_results) # Format tawalt results (if any)
+    html_output += format_eng_results(eng_results)
+    html_output += format_msmun_fr_m_results(msmun_fr_m_results) # Format msmun_fr table_m results
+    html_output += format_msmun_fr_r_results(msmun_fr_r_results) # Format msmun_fr table_r results
+    html_output += format_msmun_ar_m_r_results(msmun_ar_m_r_results)
+    html_output += format_msmun_ar_r_m_results(msmun_ar_r_m_results)
+
 
     if not html_output:
         return "No results found"
 
     return html_output
 
-def search_exact_mode(normalized_query_general, normalized_query_amazigh, language):
-    results = []
-    remaining_results = 50
 
-    db_order = get_db_order(language)
-
-    for db_name in db_order:
-        if remaining_results <= 0:
-            break
-
-        if db_name == 'dglai14.db':
-            db_results = search_dglai14_exact(normalized_query_general, normalized_query_amazigh, remaining_results)
-        elif db_name == 'tawalt_fr.db':
-            db_results = search_tawalt_fr_exact(normalized_query_general, normalized_query_amazigh, remaining_results)
-        elif db_name == 'tawalt.db':
-            db_results = search_tawalt_exact(normalized_query_general, normalized_query_amazigh, remaining_results)
-        elif db_name == 'eng.db':
-            db_results = search_eng_exact(normalized_query_general, normalized_query_amazigh, remaining_results)
-        elif db_name == 'msmun_fr.db':
-            db_results_m = search_msmun_fr_m_exact(normalized_query_general, normalized_query_amazigh, remaining_results)
-            db_results_r = search_msmun_fr_r_exact(normalized_query_general, normalized_query_amazigh, remaining_results)
-            db_results = db_results_m + db_results_r
-        elif db_name == 'msmun_ar.db':
-            db_results_mr = search_msmun_ar_m_r_exact(normalized_query_general, normalized_query_amazigh, remaining_results)
-            db_results_rm = search_msmun_ar_r_m_exact(normalized_query_general, normalized_query_amazigh, remaining_results)
-            db_results = db_results_mr + db_results_rm
-        else:
-            continue
-
-        results.extend(db_results[:remaining_results])
-        remaining_results -= len(db_results[:remaining_results])
-    return results
-
-
-def search_fuzzy_mode(normalized_query_general, normalized_query_amazigh, language):
-    start_search_term_general = f"{normalized_query_general}%"
-    contain_search_term_general = f"%{normalized_query_general}%"
-    start_search_term_amazigh = f"{normalized_query_amazigh}%"
-    contain_search_term_amazigh = f"%{normalized_query_amazigh}%"
-
-    results = []
-    remaining_results = 50
-
-    db_order = get_db_order(language)
-
-    for db_name in db_order:
-        if remaining_results <= 0:
-            break
-
-        if db_name == 'dglai14.db':
-            db_results = search_dglai14(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh)
-        elif db_name == 'tawalt_fr.db':
-            db_results = search_tawalt_fr(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
-        elif db_name == 'tawalt.db':
-            db_results = search_tawalt(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
-        elif db_name == 'eng.db':
-            db_results = search_eng(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
-        elif db_name == 'msmun_fr.db':
-            db_results_m = search_msmun_fr_m(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
-            db_results_r = search_msmun_fr_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
-            db_results = db_results_m + db_results_r
-        elif db_name == 'msmun_ar.db':
-            db_results_mr = search_msmun_ar_m_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
-            db_results_rm = search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, remaining_results)
-            db_results = db_results_mr + db_results_rm
-        else:
-            continue
-
-        results.extend(db_results[:remaining_results])
-        remaining_results -= len(db_results[:remaining_results])
-    return results
-
-def get_db_order(language):
-    if language == "Amazigh":
-        return ['dglai14.db', 'tawalt.db', 'tawalt_fr.db', 'eng.db', 'msmun_fr.db', 'msmun_ar.db'] #Amazigh prioritized
-    elif language == "French":
-        return ['tawalt_fr.db', 'msmun_fr.db', 'dglai14.db', 'tawalt.db', 'eng.db', 'msmun_ar.db'] #French prioritized
-    elif language == "Arabic":
-        return ['tawalt.db', 'msmun_ar.db', 'dglai14.db', 'tawalt_fr.db', 'eng.db', 'msmun_fr.db'] #Arabic prioritized
-    elif language == "English":
-        return ['eng.db', 'dglai14.db', 'tawalt_fr.db', 'tawalt.db', 'msmun_fr.db', 'msmun_ar.db'] #English prioritized
-    else: # General or "All"
-        return ['dglai14.db', 'tawalt_fr.db', 'tawalt.db', 'eng.db', 'msmun_fr.db', 'msmun_ar.db'] #Original order
-
-def search_dglai14_exact(exact_search_term_general, exact_search_term_amazigh, limit):
+def search_dglai14(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh):
     conn = get_db_connection('dglai14.db')
     cursor = conn.cursor()
-    conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
 
+    # Add the custom SQLite function for Amazigh normalization *inside* the function that uses it
+    conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text) # To be removed if the database is selectable
+
+    # Start Search (dglai14)
     cursor.execute("""
         SELECT lexie.*, sens.sens_fr, sens.sens_ar,
                expression.exp_amz, expression.exp_fr, expression.exp_ar
@@ -168,76 +148,154 @@ def search_dglai14_exact(exact_search_term_general, exact_search_term_amazigh, l
         LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
         LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
         WHERE
-        (NORMALIZE_AMAZIGH(lexie) = ?)
-        OR (NORMALIZE_AMAZIGH(remarque) = ?)
-        OR (NORMALIZE_AMAZIGH(variante) = ?)
-        OR (REMOVE_DIACRITICS(LOWER(cg)) = ?)
-        OR (NORMALIZE_AMAZIGH(eadata) = ?)
-        OR (NORMALIZE_AMAZIGH(pldata) = ?)
-        OR (REMOVE_DIACRITICS(LOWER(acc)) = ?)
-        OR (REMOVE_DIACRITICS(LOWER(acc_neg)) = ?)
-        OR (REMOVE_DIACRITICS(LOWER(inacc)) = ?)
-        OR (REMOVE_DIACRITICS(LOWER(fel)) = ?)
-        OR (REMOVE_DIACRITICS(LOWER(fea)) = ?)
-        OR (REMOVE_diacritics(LOWER(fpel)) = ?)
-        OR (REMOVE_DIACRITICS(LOWER(fpea)) = ?)
-        OR (REMOVE_DIACRITICS(LOWER(sens_ar)) = ?)
-        OR (NORMALIZE_AMAZIGH(expression.exp_amz) = ?)
-        OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) = ?)
-        ORDER BY lexie.id_lexie
-        LIMIT ?
-    """, (exact_search_term_amazigh, exact_search_term_amazigh, exact_search_term_amazigh, exact_search_term_general,
-          exact_search_term_amazigh, exact_search_term_amazigh, exact_search_term_general, exact_search_term_general, exact_search_term_general,
-          exact_search_term_general, exact_search_term_general, exact_search_term_general, exact_search_term_general,
-          exact_search_term_general, exact_search_term_amazigh, exact_search_term_general, limit))
-    exact_results = cursor.fetchall()
-    conn.close()
-    return exact_results
+        (NORMALIZE_AMAZIGH(lexie) LIKE ?) -- Use NORMALIZE_AMAZIGH for lexie (Amazigh word)
+        OR (NORMALIZE_AMAZIGH(remarque) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(variante) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(cg)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(eadata) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(pldata) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(acc)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(acc_neg)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(inacc)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fel)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fea)) LIKE ?)
+        OR (REMOVE_diacritics(LOWER(fpel)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fpea)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(sens_ar)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(expression.exp_amz) LIKE ?) -- Use NORMALIZE_AMAZIGH for exp_amz
+        OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) LIKE ?)
 
-def search_tawalt_fr_exact(exact_search_term_general, exact_search_term_amazigh, limit):
+        ORDER BY lexie.id_lexie
+        LIMIT 50
+    """, (start_search_term_amazigh, start_search_term_amazigh, start_search_term_amazigh, start_search_term_general,
+          start_search_term_amazigh, start_search_term_amazigh, start_search_term_general, start_search_term_general, start_search_term_general,
+          start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
+          start_search_term_general, start_search_term_amazigh, start_search_term_general))
+    start_results = cursor.fetchall()
+
+    # Contain Search (dglai14)
+    cursor.execute("""
+        SELECT lexie.*, sens.sens_fr, sens.sens_ar,
+               expression.exp_amz, expression.exp_fr, expression.exp_ar
+        FROM lexie
+        LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
+        LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
+        WHERE (
+        (NORMALIZE_AMAZIGH(lexie) LIKE ?) -- Use NORMALIZE_AMAZIGH for lexie (Amazigh word)
+        OR (NORMALIZE_AMAZIGH(remarque) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(variante) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(cg)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(eadata) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(pldata) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(acc)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(acc_neg)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(inacc)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fel)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fea)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fpel)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fpea)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(sens_ar)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(expression.exp_amz) LIKE ?) -- Use NORMALIZE_AMAZIGH for exp_amz
+        OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) LIKE ?)
+        )
+        AND NOT (NORMALIZE_AMAZIGH(lexie) LIKE ?) -- Use NORMALIZE_AMAZIGH here too
+        ORDER BY lexie.id_lexie
+        LIMIT 50
+    """, (contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_general,
+          contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_general, contain_search_term_general, contain_search_term_general,
+          contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
+          contain_search_term_general, contain_search_term_amazigh, contain_search_term_general,
+          start_search_term_amazigh))  # Use start_search_term_amazigh for the NOT LIKE part
+    contain_results = cursor.fetchall()
+    conn.close()
+    return list(start_results) + list(contain_results)
+
+def search_tawalt_fr(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit):
     conn = get_db_connection('tawalt_fr.db')
     cursor = conn.cursor()
+
+    # Add the custom SQLite function for Amazigh normalization
     conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
     conn.create_function("NORMALIZE_FRENCH", 1, normalize_french_text)
 
+    # Start Search (tawalt_fr)
     cursor.execute("""
         SELECT *
         FROM words
         WHERE
-        (NORMALIZE_AMAZIGH(tifinagh) = ?)
-        OR (NORMALIZE_FRENCH(french) = ?)
+        (NORMALIZE_AMAZIGH(tifinagh) LIKE ?)
+        OR (NORMALIZE_FRENCH(french) LIKE ?)
         ORDER BY _id
         LIMIT ?
-    """, (exact_search_term_amazigh, exact_search_term_general, limit))
-    exact_results = cursor.fetchall()
-    conn.close()
-    return exact_results
+    """, (start_search_term_amazigh, start_search_term_general, limit))
+    start_results = cursor.fetchall()
 
-def search_tawalt_exact(exact_search_term_general, exact_search_term_amazigh, limit):
+    # Contain Search (tawalt_fr)
+    cursor.execute("""
+        SELECT *
+        FROM words
+        WHERE (
+        (NORMALIZE_AMAZIGH(tifinagh) LIKE ?)
+        OR (NORMALIZE_FRENCH(french) LIKE ?)
+        )
+        AND NOT (NORMALIZE_AMAZIGH(tifinagh) LIKE ?)
+        ORDER BY _id
+        LIMIT ?
+    """, (contain_search_term_amazigh, contain_search_term_general, start_search_term_amazigh, limit))
+    contain_results = cursor.fetchall()
+    conn.close()
+    return list(start_results) + list(contain_results)
+
+
+def search_tawalt(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, limit):
     conn = get_db_connection('tawalt.db')
     cursor = conn.cursor()
-    conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
 
+    # Add the custom SQLite function for Amazigh normalization
+    conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)  #To be removed if the database is selectable
+
+    # Start Search (tawalt)
     cursor.execute("""
         SELECT *
         FROM words
         WHERE
-        (NORMALIZE_AMAZIGH(tifinagh) = ?)
-        OR (REMOVE_DIACRITICS(LOWER(arabic)) = ?)
-        OR (REMOVE_DIACRITICS(LOWER(arabic_meaning)) = ?)
-        OR (NORMALIZE_AMAZIGH(tifinagh_in_arabic) = ?)
-        OR (NORMALIZE_AMAZIGH(_arabic) = ?)
-        OR (NORMALIZE_AMAZIGH(_arabic_meaning) = ?)
-        OR (NORMALIZE_AMAZIGH(_tifinagh_in_arabic) = ?)
+        (NORMALIZE_AMAZIGH(tifinagh) LIKE ?) -- Use NORMALIZE_AMAZIGH for tifinagh
+        OR (REMOVE_DIACRITICS(LOWER(arabic)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(arabic_meaning)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(tifinagh_in_arabic) LIKE ?) -- Use NORMALIZE_AMAZIGH
+        OR (NORMALIZE_AMAZIGH(_arabic) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(_arabic_meaning) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(_tifinagh_in_arabic) LIKE ?)
         ORDER BY _id
         LIMIT ?
-    """, (exact_search_term_amazigh, exact_search_term_general, exact_search_term_general, exact_search_term_amazigh,
-          exact_search_term_amazigh, exact_search_term_amazigh, exact_search_term_amazigh, limit))
-    exact_results = cursor.fetchall()
-    conn.close()
-    return exact_results
+    """, (start_search_term_amazigh, start_search_term_general, start_search_term_general, start_search_term_amazigh,
+          start_search_term_amazigh, start_search_term_amazigh, start_search_term_amazigh, limit))
+    start_results = cursor.fetchall()
 
-def search_eng_exact(exact_search_term_general, exact_search_term_amazigh, limit):
+    # Contain Search (tawalt)
+    cursor.execute("""
+        SELECT *
+        FROM words
+        WHERE (
+        (NORMALIZE_AMAZIGH(tifinagh) LIKE ?) -- Use NORMALIZE_AMAZIGH for tifinagh
+        OR (REMOVE_DIACRITICS(LOWER(arabic)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(arabic_meaning)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(tifinagh_in_arabic) LIKE ?) -- Use NORMALIZE_AMAZIGH
+        OR (NORMALIZE_AMAZIGH(_arabic) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(_arabic_meaning) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(_tifinagh_in_arabic) LIKE ?)
+        )
+        AND NOT (NORMALIZE_AMAZIGH(tifinagh) LIKE ?) -- Use NORMALIZE_AMAZIGH
+        ORDER BY _id
+        LIMIT ?
+    """, (contain_search_term_amazigh, contain_search_term_general, contain_search_term_general, contain_search_term_amazigh,
+          contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_amazigh,
+          start_search_term_amazigh, limit)) # Use start_search_term_amazigh for NOT LIKE
+    contain_results = cursor.fetchall()
+    conn.close()
+    return list(start_results) + list(contain_results)
+
+def search_eng(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit):
     conn = get_db_connection('eng.db')
     cursor = conn.cursor()
     conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
@@ -247,27 +305,53 @@ def search_eng_exact(exact_search_term_general, exact_search_term_amazigh, limit
         FROM Dictionary_Amazigh_full AS da
         LEFT JOIN Dictionary_English_Amazih_links AS dea ON da.id_lexie = dea.id_lexie
         WHERE (
-            NORMALIZE_AMAZIGH(da.lexie) = ?
-            OR NORMALIZE_AMAZIGH(da.remarque) = ?
-            OR NORMALIZE_AMAZIGH(da.variante) = ?
-            OR LOWER(da.cg) = ?
-            OR NORMALIZE_AMAZIGH(da.eadata) = ?
-            OR NORMALIZE_AMAZIGH(da.pldata) = ?
-            OR LOWER(da.acc) = ?
-            OR LOWER(da.acc_neg) = ?
-            OR LOWER(da.inacc) = ?
-            OR LOWER(dea.sens_eng) = ?
+            NORMALIZE_AMAZIGH(da.lexie) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.remarque) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.variante) LIKE ?
+            OR LOWER(da.cg) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.eadata) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.pldata) LIKE ?
+            OR LOWER(da.acc) LIKE ?
+            OR LOWER(da.acc_neg) LIKE ?
+            OR LOWER(da.inacc) LIKE ?
+            OR LOWER(dea.sens_eng) LIKE ?
         )
         ORDER BY da.id_lexie
         LIMIT ?
-    """, (exact_search_term_amazigh, exact_search_term_amazigh, exact_search_term_amazigh, exact_search_term_general,
-          exact_search_term_amazigh, exact_search_term_amazigh, exact_search_term_general, exact_search_term_general,
-          exact_search_term_general, exact_search_term_general, limit))
-    exact_results = cursor.fetchall()
-    conn.close()
-    return exact_results
+    """, (start_search_term_amazigh, start_search_term_amazigh, start_search_term_amazigh, start_search_term_general,
+          start_search_term_amazigh, start_search_term_amazigh, start_search_term_general, start_search_term_general,
+          start_search_term_general, start_search_term_general, limit))
 
-def search_msmun_fr_m_exact(exact_search_term_general, exact_search_term_amazigh, limit):
+    start_results = cursor.fetchall()
+
+    cursor.execute("""
+      SELECT da.*, dea.sens_eng
+        FROM Dictionary_Amazigh_full AS da
+        LEFT JOIN Dictionary_English_Amazih_links AS dea ON da.id_lexie = dea.id_lexie
+        WHERE (
+            NORMALIZE_AMAZIGH(da.lexie) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.remarque) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.variante) LIKE ?
+            OR LOWER(da.cg) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.eadata) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.pldata) LIKE ?
+            OR LOWER(da.acc) LIKE ?
+            OR LOWER(da.acc_neg) LIKE ?
+            OR LOWER(da.inacc) LIKE ?
+            OR LOWER(dea.sens_eng) LIKE ?
+        )
+        AND NOT NORMALIZE_AMAZIGH(da.lexie) LIKE ?
+        ORDER BY da.id_lexie
+        LIMIT ?
+    """, (contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_general,
+          contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_general, contain_search_term_general,
+          contain_search_term_general, contain_search_term_general, start_search_term_amazigh, limit))
+    contain_results = cursor.fetchall()
+    conn.close()
+
+    return list(start_results) + list(contain_results)
+
+def search_msmun_fr_m(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit):
     conn = get_db_connection('msmun_fr.db')
     cursor = conn.cursor()
     conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
@@ -277,17 +361,30 @@ def search_msmun_fr_m_exact(exact_search_term_general, exact_search_term_amazigh
         SELECT *
         FROM table_m
         WHERE (
-            NORMALIZE_AMAZIGH(word) = ?
-            OR NORMALIZE_FRENCH(result) = ?
+            NORMALIZE_AMAZIGH(word) LIKE ?
+            OR NORMALIZE_FRENCH(result) LIKE ?
         )
         ORDER BY _id
         LIMIT ?
-    """, (exact_search_term_amazigh, exact_search_term_general, limit))
-    exact_results = cursor.fetchall()
-    conn.close()
-    return exact_results
+    """, (start_search_term_amazigh, start_search_term_general, limit))
+    start_results = cursor.fetchall()
 
-def search_msmun_fr_r_exact(exact_search_term_general, exact_search_term_amazigh, limit):
+    cursor.execute("""
+        SELECT *
+        FROM table_m
+        WHERE (
+            NORMALIZE_AMAZIGH(word) LIKE ?
+            OR NORMALIZE_FRENCH(result) LIKE ?
+        )
+        AND NOT NORMALIZE_AMAZIGH(word) LIKE ?
+        ORDER BY _id
+        LIMIT ?
+    """, (contain_search_term_amazigh, contain_search_term_general, start_search_term_amazigh, limit))
+    contain_results = cursor.fetchall()
+    conn.close()
+    return list(start_results) + list(contain_results)
+
+def search_msmun_fr_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit):
     conn = get_db_connection('msmun_fr.db')
     cursor = conn.cursor()
     conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
@@ -297,17 +394,31 @@ def search_msmun_fr_r_exact(exact_search_term_general, exact_search_term_amazigh
         SELECT *
         FROM table_r
         WHERE (
-            NORMALIZE_FRENCH(word) = ?
-            OR NORMALIZE_AMAZIGH(result) = ?
+            NORMALIZE_FRENCH(word) LIKE ?
+            OR NORMALIZE_AMAZIGH(result) LIKE ?
         )
         ORDER BY _id
         LIMIT ?
-    """, (exact_search_term_general, exact_search_term_amazigh, limit))
-    exact_results = cursor.fetchall()
-    conn.close()
-    return exact_results
+    """, (start_search_term_general, start_search_term_amazigh, limit))
+    start_results = cursor.fetchall()
 
-def search_msmun_ar_m_r_exact(exact_search_term_general, exact_search_term_amazigh, limit):
+    cursor.execute("""
+        SELECT *
+        FROM table_r
+        WHERE (
+            NORMALIZE_FRENCH(word) LIKE ?
+            OR NORMALIZE_AMAZIGH(result) LIKE ?
+        )
+        AND NOT NORMALIZE_FRENCH(word) LIKE ?
+        ORDER BY _id
+        LIMIT ?
+    """, (contain_search_term_general, contain_search_term_amazigh, start_search_term_general, limit))
+    contain_results = cursor.fetchall()
+    conn.close()
+    return list(start_results) + list(contain_results)
+
+
+def search_msmun_ar_m_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit):
     conn = get_db_connection('msmun_ar.db')
     cursor = conn.cursor()
     conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
@@ -316,17 +427,30 @@ def search_msmun_ar_m_r_exact(exact_search_term_general, exact_search_term_amazi
         SELECT *
         FROM table_m_r
         WHERE (
-            NORMALIZE_AMAZIGH(word) = ?
-            OR REMOVE_DIACRITICS(LOWER(result)) = ?
+            NORMALIZE_AMAZIGH(word) LIKE ?
+            OR REMOVE_DIACRITICS(LOWER(result)) LIKE ?
         )
         ORDER BY _id
         LIMIT ?
-    """, (exact_search_term_amazigh, exact_search_term_general, limit))
-    exact_results = cursor.fetchall()
-    conn.close()
-    return exact_results
+    """, (start_search_term_amazigh, start_search_term_general, limit))
+    start_results = cursor.fetchall()
 
-def search_msmun_ar_r_m_exact(exact_search_term_general, exact_search_term_amazigh, limit):
+    cursor.execute("""
+        SELECT *
+        FROM table_m_r
+        WHERE (
+            NORMALIZE_AMAZIGH(word) LIKE ?
+            OR REMOVE_DIACRITICS(LOWER(result)) LIKE ?
+        )
+        AND NOT NORMALIZE_AMAZIGH(word) LIKE ?
+        ORDER BY _id
+        LIMIT ?
+    """, (contain_search_term_amazigh, contain_search_term_general, start_search_term_amazigh, limit))
+    contain_results = cursor.fetchall()
+    conn.close()
+    return list(start_results) + list(contain_results)
+
+def search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit):
     conn = get_db_connection('msmun_ar.db')
     cursor = conn.cursor()
     conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
@@ -335,54 +459,28 @@ def search_msmun_ar_r_m_exact(exact_search_term_general, exact_search_term_amazi
         SELECT *
         FROM table_r_m
         WHERE (
-            REMOVE_DIACRITICS(LOWER(word)) = ?
-            OR NORMALIZE_AMAZIGH(result) = ?
+            REMOVE_DIACRITICS(LOWER(word)) LIKE ?
+            OR NORMALIZE_AMAZIGH(result) LIKE ?
         )
         ORDER BY _id
         LIMIT ?
-    """, (exact_search_term_general, exact_search_term_amazigh, limit))
-    exact_results = cursor.fetchall()
+    """, (start_search_term_general, start_search_term_amazigh, limit))
+    start_results = cursor.fetchall()
+
+    cursor.execute("""
+        SELECT *
+        FROM table_r_m
+        WHERE (
+            REMOVE_DIACRITICS(LOWER(word)) LIKE ?
+            OR NORMALIZE_AMAZIGH(result) LIKE ?
+        )
+        AND NOT REMOVE_DIACRITICS(LOWER(word)) LIKE ?
+        ORDER BY _id
+        LIMIT ?
+    """, (contain_search_term_general, contain_search_term_amazigh, start_search_term_general, limit))
+    contain_results = cursor.fetchall()
     conn.close()
-    return exact_results
-
-
-def format_results(results):
-    dglai14_results = []
-    tawalt_fr_results = []
-    tawalt_results = []
-    eng_results = []
-    msmun_fr_m_results = []
-    msmun_fr_r_results = []
-    msmun_ar_m_r_results = []
-    msmun_ar_r_m_results = []
-
-    for row in results:
-        if 'cg' in row.keys() and 'sens_fr' in row.keys(): # Check for dglai14 keys
-            dglai14_results.append(dict(row))
-        elif 'french' in row.keys() and 'tifinagh' in row.keys() and 'words' == row.table_name: #Check for tawalt_fr keys
-            tawalt_fr_results.append(dict(row))
-        elif 'arabic' in row.keys() and 'tifinagh' in row.keys() and 'words' == row.table_name: # Check for tawalt keys
-            tawalt_results.append(dict(row))
-        elif 'sens_eng' in row.keys() and 'Dictionary_Amazigh_full' == row.table_name: # Check for eng keys
-            eng_results.append(dict(row))
-        elif 'table_name' == 'table_m' and 'result' in row.keys(): # Check for msmun_fr table_m keys
-            msmun_fr_m_results.append(dict(row))
-        elif 'table_name' == 'table_r' and 'result' in row.keys(): # Check for msmun_fr table_r keys
-            msmun_fr_r_results.append(dict(row))
-        elif 'table_name' == 'table_m_r' and 'result' in row.keys(): # Check for msmun_ar table_m_r keys
-            msmun_ar_m_r_results.append(dict(row))
-        elif 'table_name' == 'table_r_m' and 'result' in row.keys(): # Check for msmun_ar table_r_m keys
-            msmun_ar_r_m_results.append(dict(row))
-
-    html_output = format_dglai14_results(dglai14_results)  # Format dglai14 results
-    html_output += format_tawalt_fr_results(tawalt_fr_results) # Format tawalt_fr results
-    html_output += format_tawalt_results(tawalt_results) # Format tawalt results (if any)
-    html_output += format_eng_results(eng_results)
-    html_output += format_msmun_fr_m_results(msmun_fr_m_results) # Format msmun_fr table_m results
-    html_output += format_msmun_fr_r_results(msmun_fr_r_results) # Format msmun_fr table_r results
-    html_output += format_msmun_ar_m_r_results(msmun_ar_m_r_results)
-    html_output += format_msmun_ar_r_m_results(msmun_ar_r_m_results)
-    return html_output
+    return list(start_results) + list(contain_results)
 
 
 def format_dglai14_results(results):
@@ -784,7 +882,7 @@ def format_msmun_ar_r_m_results(results):
     return html_output
 
 
-# Create Gradio interface
+# Create Gradio interface (Remains the same)
 with gr.Blocks(css="footer {display: none !important}") as iface:
     gr.HTML("""
     <div style="text-align: center; margin-bottom: 2rem;">
@@ -799,20 +897,11 @@ with gr.Blocks(css="footer {display: none !important}") as iface:
             lines=1
         )
 
-    with gr.Row():
-        exact_search_checkbox = gr.Checkbox(label="Exact Search", value=False)
-        language_select = gr.Dropdown(
-            ["General", "Amazigh", "French", "Arabic", "English"],
-            value="General",
-            label="Language"
-        )
-        search_button = gr.Button("Search")
-
     output_html = gr.HTML()
 
-    search_button.click(
+    input_text.change(
         fn=search_dictionary,
-        inputs=[input_text, exact_search_checkbox, language_select],
+        inputs=input_text,
         outputs=output_html,
         api_name="search"
     )
