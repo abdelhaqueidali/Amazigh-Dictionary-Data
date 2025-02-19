@@ -60,11 +60,11 @@ def search_dictionary(query):
         }
         
         for label, field in fields.items():
-            if row[field]:  # Check if the field has a value
+            if row[field]:
                 html_output += f"""
                 <div style="margin-bottom: 8px;">
                     <strong style="color: #34495e;">{label}:</strong>
-                    <span>{row[field]}</span> 
+                    <span>{row[field]}</span>
                 </div>
                 """
         
