@@ -64,7 +64,7 @@ def search_dictionary(query):
                 html_output += f"""
                 <div style="margin-bottom: 8px;">
                     <strong style="color: #34495e;">{label}:</strong>
-                    <span>{row[field]}</span>
+                    <span style="color: black;">{row[field]}</span>
                 </div>
                 """
         
