@@ -24,15 +24,15 @@ def search_dictionary(query):
         OR remarque LIKE ?
         OR variante LIKE ?
         OR cg LIKE ?
-        OR eadata LIKE ?
-        OR pldata LIKE ?
-        OR acc LIKE ?
-        OR acc_neg LIKE ?
-        OR inacc LIKE ?
-        OR fel LIKE ?
-        OR fea LIKE ?
-        OR fpel LIKE ?
-        OR fpea LIKE ?
+        OR eadata LIKE ?  -- Added Construct State to search
+        OR pldata LIKE ?  -- Added Plural to search
+        OR acc LIKE ?     -- Added Accomplished to search
+        OR acc_neg LIKE ? -- Added Negative Accomplished to search
+        OR inacc LIKE ?   -- Added Unaccomplished to search
+        OR fel LIKE ?     -- Added Feminine to search
+        OR fea LIKE ?     -- Added Feminine Construct to search
+        OR fpel LIKE ?    -- Added Feminine Plural to search
+        OR fpea LIKE ?    -- Added Feminine Plural Construct to search
         LIMIT 50
     """, (search_term, search_term, search_term, search_term, search_term,
           search_term, search_term, search_term, search_term, search_term,
@@ -44,16 +44,9 @@ def search_dictionary(query):
     if not results:
         return "No results found"
 
-    # Format results as HTML, prevent duplicates
+    # Format results as HTML
     html_output = ""
-    processed_lexie_ids = set()  # Keep track of processed lexie IDs
-
     for row in results:
-        lexie_id = row['id_lexie']
-        if lexie_id in processed_lexie_ids:
-            continue  # Skip if this lexie_id has already been processed
-        processed_lexie_ids.add(lexie_id) # Mark this lexie_id as processed
-
         html_output += f"""
         <div style="background: white; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
             <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">
@@ -77,16 +70,16 @@ def search_dictionary(query):
             'Feminine Construct': 'fea',
             'Feminine Plural': 'fpel',
             'Feminine Plural Construct': 'fpea',
-            'French Translation': row['sens_fr'],  # Get translation from the first result
-            'Arabic Translation': row['sens_ar']   # Get translation from the first result
+            'French Translation': 'sens_fr',  # Added French Translation
+            'Arabic Translation': 'sens_ar'   # Added Arabic Translation
         }
 
         for label, field in fields.items():
-            if field: # Check if field is not None/empty (important for translations)
+            if row[field]:
                 html_output += f"""
                 <div style="margin-bottom: 8px;">
                     <strong style="color: #34495e;">{label}:</strong>
-                    <span style="color: black;">{field}</span>
+                    <span style="color: black;">{row[field]}</span>
                 </div>
                 """
 
