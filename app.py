@@ -101,7 +101,6 @@ def search_dglai14(start_search_term_general, contain_search_term_general,start_
         LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
         WHERE
         (NORMALIZE_AMAZIGH(lexie) LIKE ?) -- Use NORMALIZE_AMAZIGH for lexie (Amazigh word)
-        OR (REMOVE_DIACRITICS(LOWER(api)) LIKE ?)
         OR (REMOVE_DIACRITICS(LOWER(remarque)) LIKE ?)
         OR (REMOVE_DIACRITICS(LOWER(variante)) LIKE ?)
         OR (REMOVE_DIACRITICS(LOWER(cg)) LIKE ?)
@@ -120,7 +119,7 @@ def search_dglai14(start_search_term_general, contain_search_term_general,start_
 
         ORDER BY lexie.id_lexie
         LIMIT 50
-    """, (start_search_term_amazigh, start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
+    """, (start_search_term_amazigh, start_search_term_general, start_search_term_general, start_search_term_general,
           start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
           start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
           start_search_term_general, start_search_term_amazigh, start_search_term_general))
@@ -135,7 +134,6 @@ def search_dglai14(start_search_term_general, contain_search_term_general,start_
         LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
         WHERE (
         (NORMALIZE_AMAZIGH(lexie) LIKE ?) -- Use NORMALIZE_AMAZIGH for lexie (Amazigh word)
-        OR (REMOVE_DIACRITICS(LOWER(api)) LIKE ?)
         OR (REMOVE_DIACRITICS(LOWER(remarque)) LIKE ?)
         OR (REMOVE_DIACRITICS(LOWER(variante)) LIKE ?)
         OR (REMOVE_DIACRITICS(LOWER(cg)) LIKE ?)
@@ -155,7 +153,7 @@ def search_dglai14(start_search_term_general, contain_search_term_general,start_
         AND NOT (NORMALIZE_AMAZIGH(lexie) LIKE ?) -- Use NORMALIZE_AMAZIGH here too
         ORDER BY lexie.id_lexie
         LIMIT 50
-    """, (contain_search_term_amazigh, contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
+    """, (contain_search_term_amazigh, contain_search_term_general, contain_search_term_general, contain_search_term_general,
           contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
           contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
           contain_search_term_general, contain_search_term_amazigh, contain_search_term_general,
@@ -223,7 +221,6 @@ def format_dglai14_results(results):
         if lexie_id not in aggregated_results:
             aggregated_results[lexie_id] = {
                 'lexie': row['lexie'],
-                'api': row['api'],
                 'remarque': row['remarque'],
                 'variante': row['variante'],
                 'cg': row['cg'],
@@ -265,7 +262,6 @@ def format_dglai14_results(results):
         """
 
         fields = {
-            'Transcription': 'api',
             'Notes': 'remarque',
             'Construct State': 'eadata',
             'Plural': 'pldata',
