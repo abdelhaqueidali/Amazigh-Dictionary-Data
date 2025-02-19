@@ -38,3 +38,4 @@ tawalt.db filter=lfs diff=lfs merge=lfs -text
 Amawal_english.db filter=lfs diff=lfs merge=lfs -text
 eng.db filter=lfs diff=lfs merge=lfs -text
 Amawal_new.db filter=lfs diff=lfs merge=lfs -text
+tawalt_fr.db filter=lfs diff=lfs merge=lfs -text
