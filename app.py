@@ -108,28 +108,28 @@ def search_dglai14(start_search_term_general, contain_search_term_general,start_
         LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
         LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
         WHERE
-        (NORMALIZE_AMAZIGH(lexie) LIKE ?) -- Use NORMALIZE_AMAZIGH for lexie (Amazigh word)
-        OR (REMOVE_DIACRITICS(LOWER(remarque)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(variante)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(cg)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(eadata)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(pldata)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(acc)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(acc_neg)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(inacc)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(fel)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(fea)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(fpel)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(fpea)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(sens_ar)) LIKE ?)
+        (NORMALIZE_AMAZIGH(lexie.lexie) LIKE ?) -- Use NORMALIZE_AMAZIGH for lexie (Amazigh word)
+        OR (REMOVE_DIACRITICS(LOWER(lexie.remarque)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.variante) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(lexie.cg)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.eadata) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.pldata) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.acc)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.acc_neg)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.inacc)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.fel)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.fea)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.fpel)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.fpea)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(sens.sens_ar)) LIKE ?)
         OR (NORMALIZE_AMAZIGH(expression.exp_amz) LIKE ?) -- Use NORMALIZE_AMAZIGH for exp_amz
         OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) LIKE ?)
 
         ORDER BY lexie.id_lexie
         LIMIT 50
-    """, (start_search_term_amazigh, start_search_term_general, start_search_term_general, start_search_term_general,
-          start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
-          start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
+    """, (start_search_term_amazigh, start_search_term_general, start_search_term_amazigh, start_search_term_general,
+          start_search_term_amazigh, start_search_term_amazigh, start_search_term_amazigh, start_search_term_amazigh, start_search_term_amazigh,
+          start_search_term_amazigh, start_search_term_amazigh, start_search_term_amazigh, start_search_term_amazigh,
           start_search_term_general, start_search_term_amazigh, start_search_term_general))
     start_results = cursor.fetchall()
 
@@ -141,29 +141,29 @@ def search_dglai14(start_search_term_general, contain_search_term_general,start_
         LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
         LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
         WHERE (
-        (NORMALIZE_AMAZIGH(lexie) LIKE ?) -- Use NORMALIZE_AMAZIGH for lexie (Amazigh word)
-        OR (REMOVE_DIACRITICS(LOWER(remarque)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(variante)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(cg)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(eadata)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(pldata)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(acc)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(acc_neg)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(inacc)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(fel)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(fea)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(fpel)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(fpea)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(sens_ar)) LIKE ?)
+        (NORMALIZE_AMAZIGH(lexie.lexie) LIKE ?) -- Use NORMALIZE_AMAZIGH for lexie (Amazigh word)
+        OR (REMOVE_DIACRITICS(LOWER(lexie.remarque)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.variante) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(lexie.cg)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.eadata) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.pldata) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.acc)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.acc_neg)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.inacc)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.fel)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.fea)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.fpel)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(lexie.fpea)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(sens.sens_ar)) LIKE ?)
         OR (NORMALIZE_AMAZIGH(expression.exp_amz) LIKE ?) -- Use NORMALIZE_AMAZIGH for exp_amz
         OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) LIKE ?)
         )
-        AND NOT (NORMALIZE_AMAZIGH(lexie) LIKE ?) -- Use NORMALIZE_AMAZIGH here too
+        AND NOT (NORMALIZE_AMAZIGH(lexie.lexie) LIKE ?) -- Use NORMALIZE_AMAZIGH here too
         ORDER BY lexie.id_lexie
         LIMIT 50
-    """, (contain_search_term_amazigh, contain_search_term_general, contain_search_term_general, contain_search_term_general,
-          contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
-          contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
+    """, (contain_search_term_amazigh, contain_search_term_general, contain_search_term_amazigh, contain_search_term_general,
+          contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_amazigh,
+          contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_amazigh,
           contain_search_term_general, contain_search_term_amazigh, contain_search_term_general,
           start_search_term_amazigh))  # Use start_search_term_amazigh for the NOT LIKE part
     contain_results = cursor.fetchall()
@@ -182,14 +182,14 @@ def search_tawalt(start_search_term_general, contain_search_term_general,start_s
         SELECT *
         FROM words
         WHERE
-        (NORMALIZE_AMAZIGH(tifinagh) LIKE ?) -- Use NORMALIZE_AMAZIGH for tifinagh
-        OR (REMOVE_DIACRITICS(LOWER(arabic)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(arabic_meaning)) LIKE ?)
-        OR (NORMALIZE_AMAZIGH(tifinagh_in_arabic) LIKE ?) -- Use NORMALIZE_AMAZIGH
-        OR (REMOVE_DIACRITICS(LOWER(_arabic)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(_arabic_meaning)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(_tifinagh_in_arabic)) LIKE ?)
-        ORDER BY _id
+        (NORMALIZE_AMAZIGH(words.tifinagh) LIKE ?) -- Use NORMALIZE_AMAZIGH for tifinagh
+        OR (REMOVE_DIACRITICS(LOWER(words.arabic)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(words.arabic_meaning)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(words.tifinagh_in_arabic) LIKE ?) -- Use NORMALIZE_AMAZIGH
+        OR (REMOVE_DIACRITICS(LOWER(words._arabic)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(words._arabic_meaning)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(words._tifinagh_in_arabic)) LIKE ?)
+        ORDER BY words._id
         LIMIT ?
     """, (start_search_term_amazigh, start_search_term_general, start_search_term_general, start_search_term_amazigh,
           start_search_term_general, start_search_term_general, start_search_term_general, limit))
@@ -200,16 +200,16 @@ def search_tawalt(start_search_term_general, contain_search_term_general,start_s
         SELECT *
         FROM words
         WHERE (
-        (NORMALIZE_AMAZIGH(tifinagh) LIKE ?) -- Use NORMALIZE_AMAZIGH for tifinagh
-        OR (REMOVE_DIACRITICS(LOWER(arabic)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(arabic_meaning)) LIKE ?)
-        OR (NORMALIZE_AMAZIGH(tifinagh_in_arabic) LIKE ?) -- Use NORMALIZE_AMAZIGH
-        OR (REMOVE_DIACRITICS(LOWER(_arabic)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(_arabic_meaning)) LIKE ?)
-        OR (REMOVE_DIACRITICS(LOWER(_tifinagh_in_arabic)) LIKE ?)
+        (NORMALIZE_AMAZIGH(words.tifinagh) LIKE ?) -- Use NORMALIZE_AMAZIGH for tifinagh
+        OR (REMOVE_DIACRITICS(LOWER(words.arabic)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(words.arabic_meaning)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(words.tifinagh_in_arabic) LIKE ?) -- Use NORMALIZE_AMAZIGH
+        OR (REMOVE_DIACRITICS(LOWER(words._arabic)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(words._arabic_meaning)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(words._tifinagh_in_arabic)) LIKE ?)
         )
-        AND NOT (NORMALIZE_AMAZIGH(tifinagh) LIKE ?) -- Use NORMALIZE_AMAZIGH
-        ORDER BY _id
+        AND NOT (NORMALIZE_AMAZIGH(words.tifinagh) LIKE ?) -- Use NORMALIZE_AMAZIGH
+        ORDER BY words._id
         LIMIT ?
     """, (contain_search_term_amazigh, contain_search_term_general, contain_search_term_general, contain_search_term_amazigh,
           contain_search_term_general, contain_search_term_general, contain_search_term_general,
@@ -230,20 +230,20 @@ def search_eng(start_search_term_general, contain_search_term_general, start_sea
         WHERE (
             NORMALIZE_AMAZIGH(da.lexie) LIKE ?
             OR LOWER(da.remarque) LIKE ?
-            OR LOWER(da.variante) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.variante) LIKE ?
             OR LOWER(da.cg) LIKE ?
-            OR LOWER(da.eadata) LIKE ?
-            OR LOWER(da.pldata) LIKE ?
-            OR LOWER(da.acc) LIKE ?
-            OR LOWER(da.acc_neg) LIKE ?
-            OR LOWER(da.inacc) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.eadata) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.pldata) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.acc) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.acc_neg) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.inacc) LIKE ?
             OR LOWER(dea.sens_eng) LIKE ?
         )
         ORDER BY da.id_lexie
         LIMIT ?
-    """, (start_search_term_amazigh, start_search_term_general, start_search_term_general, start_search_term_general,
-          start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
-          start_search_term_general, start_search_term_general, limit))
+    """, (start_search_term_amazigh, start_search_term_general, start_search_term_amazigh, start_search_term_general,
+          start_search_term_amazigh, start_search_term_amazigh, start_search_term_amazigh, start_search_term_amazigh,
+          start_search_term_amazigh, start_search_term_general, limit))
 
     start_results = cursor.fetchall()
 
@@ -254,21 +254,21 @@ def search_eng(start_search_term_general, contain_search_term_general, start_sea
         WHERE (
             NORMALIZE_AMAZIGH(da.lexie) LIKE ?
             OR LOWER(da.remarque) LIKE ?
-            OR LOWER(da.variante) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.variante) LIKE ?
             OR LOWER(da.cg) LIKE ?
-            OR LOWER(da.eadata) LIKE ?
-            OR LOWER(da.pldata) LIKE ?
-            OR LOWER(da.acc) LIKE ?
-            OR LOWER(da.acc_neg) LIKE ?
-            OR LOWER(da.inacc) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.eadata) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.pldata) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.acc) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.acc_neg) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.inacc) LIKE ?
             OR LOWER(dea.sens_eng) LIKE ?
         )
         AND NOT NORMALIZE_AMAZIGH(da.lexie) LIKE ?
         ORDER BY da.id_lexie
         LIMIT ?
-    """, (contain_search_term_amazigh, contain_search_term_general, contain_search_term_general, contain_search_term_general,
-          contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
-          contain_search_term_general, contain_search_term_general, start_search_term_amazigh, limit))
+    """, (contain_search_term_amazigh, contain_search_term_general, contain_search_term_amazigh, contain_search_term_general,
+          contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_amazigh,
+          contain_search_term_amazigh, contain_search_term_general, start_search_term_amazigh, limit))
     contain_results = cursor.fetchall()
     conn.close()
 
