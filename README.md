@@ -8,6 +8,11 @@ sdk_version: 5.16.1
 app_file: app.py
 pinned: false
 short_description: Amazigh dictionary
+languages:
+- ber
+- zgh
+- tamazight
+- berber
 ---
 
 Check out the configuration reference at https://huggingface.co/docs/hub/spaces-config-reference
