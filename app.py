@@ -363,7 +363,6 @@ def search_eng(start_search_term_general, contain_search_term_general, start_sea
           contain_search_term_general, contain_search_term_general, start_search_term_amazigh, limit))
     contain_results = cursor.fetchall()
     conn.close()
-
     return list(start_results) + list(contain_results)
 
 def search_msmun_fr_m(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit, exact_search):
@@ -550,12 +549,22 @@ def format_dglai14_results(results, language_option):
             display_result = True
         elif language_option == 'Amazigh' and data['lexie']:
             display_result = True
-        elif language_option == 'English' and any(data['sens_frs']) or any(data['sens_ars']): # Check for any translation for now
+        elif language_option == 'English' and (any(data['sens_frs']) or any(data['sens_ars'])): # Changed condition
             display_result = True
         elif language_option == 'Arabic' and any(data['sens_ars']):
             display_result = True
         elif language_option == 'French' and any(data['sens_frs']):
             display_result = True
+
+        if language_option == 'English' and not (any(data['sens_frs']) or any(data['sens_ars'])):
+            display_result = False
+        elif language_option == 'Arabic' and not any(data['sens_ars']):
+            display_result = False
+        elif language_option == 'French' and not any(data['sens_frs']):
+            display_result = False
+        elif language_option == 'Amazigh' and not data['lexie']:
+            display_result = False
+
 
         if display_result:
             html_output += f"""
@@ -660,6 +669,14 @@ def format_tawalt_fr_results(results, language_option):
         elif language_option == 'English' and row['french']: # Assuming french is english for now
             display_result = True
 
+        if language_option == 'Amazigh' and not row['tifinagh']:
+            display_result = False
+        elif language_option == 'French' and not row['french']:
+            display_result = False
+        elif language_option == 'English' and not row['french']:
+            display_result = False
+
+
         if display_result:
             html_output += f"""
             <div style="background: #ffe0b2; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -694,8 +711,15 @@ def format_tawalt_results(results, language_option):
         elif language_option == 'Arabic' and (row['arabic'] or row['arabic_meaning']):
             display_result = True
         elif language_option == 'English' and (row['arabic'] or row['arabic_meaning']): # Assuming arabic somewhat relates to english for now
-
             display_result = True
+
+        if language_option == 'Amazigh' and not row['tifinagh']:
+            display_result = False
+        elif language_option == 'Arabic' and not (row['arabic'] or row['arabic_meaning']):
+            display_result = False
+        elif language_option == 'English' and not (row['arabic'] or row['arabic_meaning']):
+            display_result = False
+
 
         if display_result:
             html_output += f"""
@@ -756,6 +780,12 @@ def format_eng_results(results, language_option):
         elif language_option == 'English' and any(data['sens_eng']):
             display_result = True
 
+        if language_option == 'Amazigh' and not data['lexie']:
+            display_result = False
+        elif language_option == 'English' and not any(data['sens_eng']):
+            display_result = False
+
+
         if display_result:
             html_output += f"""
             <div style="background: #d3f8d3; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -813,6 +843,14 @@ def format_msmun_fr_m_results(results, language_option):
         elif language_option == 'English' and row['result']: # Assuming french is english for now
             display_result = True
 
+        if language_option == 'Amazigh' and not row['word']:
+            display_result = False
+        elif language_option == 'French' and not row['result']:
+            display_result = False
+        elif language_option == 'English' and not row['result']:
+            display_result = False
+
+
         if display_result:
             html_output += f"""
             <div style="background: #fce4ec; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -860,6 +898,14 @@ def format_msmun_fr_r_results(results, language_option):
             display_result = True
         elif language_option == 'English' and row['word']: # Assuming arabic is english for now
             display_result = True
+
+        if language_option == 'Amazigh' and not row['result']:
+            display_result = False
+        elif language_option == 'Arabic' and not row['word']:
+            display_result = False
+        elif language_option == 'English' and not row['word']:
+            display_result = False
+
 
         if display_result:
             html_output += f"""
@@ -910,6 +956,14 @@ def format_msmun_ar_m_r_results(results, language_option):
         elif language_option == 'English' and row['result']: # Assuming arabic is english for now
             display_result = True
 
+        if language_option == 'Amazigh' and not row['word']:
+            display_result = False
+        elif language_option == 'Arabic' and not row['result']:
+            display_result = False
+        elif language_option == 'English' and not row['result']:
+            display_result = False
+
+
         if display_result:
             html_output += f"""
             <div style="background: #e0f7fa; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
@@ -957,6 +1011,14 @@ def format_msmun_ar_r_m_results(results, language_option):
             display_result = True
         elif language_option == 'English' and row['word']: # Assuming arabic is english for now
             display_result = True
+
+        if language_option == 'Amazigh' and not row['result']:
+            display_result = False
+        elif language_option == 'Arabic' and not row['word']:
+            display_result = False
+        elif language_option == 'English' and not row['word']:
+            display_result = False
+
 
         if display_result:
             html_output += f"""
