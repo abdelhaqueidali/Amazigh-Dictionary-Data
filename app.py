@@ -612,4 +612,300 @@ def format_dglai14_results(results):
     return html_output
 
 def format_tawalt_fr_results(results):
-    """Formats results from tawalt_fr.db
+    """Formats results from tawalt_fr.db."""
+    if not results:
+        return ""
+
+    html_output = ""
+    for row in results:
+        html_output += f"""
+        <div style="background: #ffe0b2; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ff9800; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{row['tifinagh'] or ''}</h3>
+            </div>
+        """
+        if row['french']:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">French:</strong>
+                <span style="color: black;">{row['french']}</span>
+            </div>
+            """
+        html_output += "</div>"
+
+    return html_output
+
+
+def format_tawalt_results(results):
+    """Formats results from tawalt.db."""
+    if not results:
+        return ""
+
+    html_output = ""
+    for row in results:
+        html_output += f"""
+        <div style="background: #fffacd; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{row['tifinagh'] or ''}</h3>
+            </div>
+        """
+        if row['arabic']:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Arabic:</strong>
+                <span style="color: black;">{row['arabic']}</span>
+            </div>
+            """
+        if row['arabic_meaning']:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Arabic Meaning:</strong>
+                <span style="color: black;">{row['arabic_meaning']}</span>
+            </div>
+            """
+        html_output += "</div>"
+
+    return html_output
+
+def format_eng_results(results):
+    """Formats results from eng.db."""
+    if not results:
+        return ""
+
+    aggregated_results = {}
+    for row in results:
+        lexie_id = row['id_lexie']
+        if lexie_id not in aggregated_results:
+            aggregated_results[lexie_id] = {
+                'lexie': row['lexie'],
+                'remarque': row['remarque'],
+                'variante': row['variante'],
+                'cg': row['cg'],
+                'eadata': row['eadata'],
+                'pldata': row['pldata'],
+                'acc': row['acc'],
+                'acc_neg': row['acc_neg'],
+                'inacc': row['inacc'],
+                'sens_eng': set()
+            }
+        if row['sens_eng']:  # Handle potential NULL values
+            aggregated_results[lexie_id]['sens_eng'].add(row['sens_eng'])
+
+    html_output = ""
+    for lexie_id, data in aggregated_results.items():
+        html_output += f"""
+        <div style="background: #d3f8d3; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2ecc71; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{data['lexie'] or ''}</h3>
+                <span style="background: #2ecc71; color: white; padding: 4px 8px; border-radius: 4px;">{data['cg'] or ''}</span>
+            </div>
+        """
+
+        fields = {
+            'Notes': 'remarque',
+            'Construct State': 'eadata',
+            'Plural': 'pldata',
+            'Accomplished': 'acc',
+            'Negative Accomplished': 'acc_neg',
+            'Unaccomplished': 'inacc',
+            'Variants': 'variante',
+        }
+
+        for label, field in fields.items():
+            if data[field]:
+                html_output += f"""
+                <div style="margin-bottom: 8px;">
+                    <strong style="color: #34495e;">{label}:</strong>
+                    <span style="color: black;">{data[field]}</span>
+                </div>
+                """
+        english_translations = ", ".join(filter(None, data['sens_eng'])) # Handle null values
+
+        if english_translations:
+             html_output += f"""
+             <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">English Translation:</strong>
+                <span style="color: black;">{english_translations}</span>
+             </div>
+             """
+        html_output += "</div>"
+
+    return html_output
+
+def format_msmun_fr_m_results(results):
+    """Formats results from msmun_fr.db table_m."""
+    if not results:
+        return ""
+
+    html_output = ""
+    for row in results:
+        html_output += f"""
+        <div style="background: #fce4ec; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f06292; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{row['word'] or ''}</h3>
+            </div>
+        """
+        if row['result']:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">French Translation:</strong>
+                <span style="color: black;">{row['result']}</span>
+            </div>
+            """
+        if row['edited'] and row['edited'].lower() == 'true':
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Edited:</strong>
+                <span style="color: black;">Yes</span>
+            </div>
+            """
+        if row['favorites'] and row['favorites'].lower() == 'true':
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Favorites:</strong>
+                <span style="color: black;">Yes</span>
+            </div>
+            """
+        html_output += "</div>"
+    return html_output
+
+def format_msmun_fr_r_results(results):
+    """Formats results from msmun_fr.db table_r."""
+    if not results:
+        return ""
+
+    html_output = ""
+    for row in results:
+        html_output += f"""
+        <div style="background: #f3e5f5; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ab47bc; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{row['result'] or ''}</h3>
+            </div>
+        """
+        if row['result']:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Arabic Translation:</strong>
+                <span style="color: black;">{row['word']}</span>
+            </div>
+            """
+        if row['edited'] and row['edited'].lower() == 'true':
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Edited:</strong>
+                <span style="color: black;">Yes</span>
+            </div>
+            """
+        if row['favorites'] and row['favorites'].lower() == 'true':
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Favorites:</strong>
+                <span style="color: black;">Yes</span>
+            </div>
+            """
+        html_output += "</div>"
+    return html_output
+
+
+def format_msmun_ar_m_r_results(results):
+    """Formats results from msmun_ar.db table_m_r."""
+    if not results:
+        return ""
+
+    html_output = ""
+    for row in results:
+        html_output += f"""
+        <div style="background: #e0f7fa; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #00bcd4; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{row['word'] or ''}</h3>
+            </div>
+        """
+        if row['result']:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Arabic Translation:</strong>
+                <span style="color: black;">{row['result']}</span>
+            </div>
+            """
+        if row['edited'] and row['edited'].lower() == 'true':
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Edited:</strong>
+                <span style="color: black;">Yes</span>
+            </div>
+            """
+        if row['favorites'] and row['favorites'].lower() == 'true':
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Favorites:</strong>
+                <span style="color: black;">Yes</span>
+            </div>
+            """
+        html_output += "</div>"
+    return html_output
+
+def format_msmun_ar_r_m_results(results):
+    """Formats results from msmun_ar.db table_r_m."""
+    if not results:
+        return ""
+
+    html_output = ""
+    for row in results:
+        html_output += f"""
+        <div style="background: #e8f5e9; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #4caf50; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{row['result'] or ''}</h3>
+            </div>
+        """
+        if row['result']:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Arabic Translation:</strong>
+                <span style="color: black;">{row['word']}</span>
+            </div>
+            """
+        if row['edited'] and row['edited'].lower() == 'true':
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Edited:</strong>
+                <span style="color: black;">Yes</span>
+            </div>
+            """
+        if row['favorites'] and row['favorites'].lower() == 'true':
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Favorites:</strong>
+                <span style="color: black;">Yes</span>
+            </div>
+            """
+        html_output += "</div>"
+    return html_output
+
+
+# Create Gradio interface (Remains the same)
+with gr.Blocks(css="footer {display: none !important}") as iface:
+    gr.HTML("""
+    <div style="text-align: center; margin-bottom: 2rem;">
+    <h1 style="color: #2c3e50; margin-bottom: 1rem;">Amazigh Dictionary</h1>
+    </div>
+    """)
+
+    with gr.Row():
+        input_text = gr.Textbox(
+            label="Search",
+            placeholder="Enter a word to search...",
+            lines=1
+        )
+
+    output_html = gr.HTML()
+
+    input_text.change(
+        fn=search_dictionary,
+        inputs=input_text,
+        outputs=output_html,
+        api_name="search"
+    )
+
+if __name__ == "__main__":
+    iface.launch()
+
