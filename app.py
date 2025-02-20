@@ -2,7 +2,6 @@ import gradio as gr
 import sqlite3
 from pathlib import Path
 import unicodedata
-import re  # Import the regular expression module
 
 def remove_diacritics(text):
     """Removes diacritics from Arabic text (and any other text)."""
@@ -14,6 +13,14 @@ def remove_diacritics(text):
 def get_db_connection(db_name):  # Function now takes db_name as argument
     conn = sqlite3.connect(db_name)
     conn.row_factory = sqlite3.Row
+    conn.enable_load_extension(True) # Enable extension loading
+    try:
+        conn.execute("SELECT regexp('test', 'test')") # Test if regexp is available
+    except sqlite3.OperationalError:
+        print("Warning: REGEXP function is not available in your SQLite build. Exact word search might not work.")
+    else:
+        conn.create_function("REMOVE_DIACRITICS", 1, remove_diacritics)
+        conn.create_function("REGEXP", 2, lambda expr, item: 1 if re.search(expr, item) else 0) # Define REGEXP if missing. This might still fail if extension loading is disabled.
     conn.create_function("REMOVE_DIACRITICS", 1, remove_diacritics)
     return conn
 
@@ -53,97 +60,70 @@ def normalize_amazigh_text(text):
 
     return text.lower() # Return lowercase for consistence
 
-def search_dictionary(query, search_type):
+import re
+
+def search_dictionary(query):
     if not query or len(query.strip()) < 1:
         return "Please enter a search term"
 
     normalized_query_general = normalize_general_text(query)
+    start_search_term_general = f"{normalized_query_general}%"
+    contain_search_term_general = f"%{normalized_query_general}%"
+    exact_search_term_general = r'\b' + re.escape(normalized_query_general) + r'\b' # Use regex word boundaries
+
     normalized_query_amazigh = normalize_amazigh_text(query)
-
-    # Determine search terms based on search_type
-    if search_type == "contains":
-        start_search_term_general = f"%{normalized_query_general}%"
-        start_search_term_amazigh = f"%{normalized_query_amazigh}%"
-        contain_search_term_general = f"%{normalized_query_general}%"
-        contain_search_term_amazigh = f"%{normalized_query_amazigh}%"
-        exact_search_term_general = None  # Not used for "contains"
-        exact_search_term_amazigh = None   # Not used for "contains"
-
-    elif search_type == "starts_with":
-        start_search_term_general = f"{normalized_query_general}%"
-        start_search_term_amazigh = f"{normalized_query_amazigh}%"
-        contain_search_term_general = f"{normalized_query_general}%"
-        contain_search_term_amazigh = f"{normalized_query_amazigh}%"
-        exact_search_term_general = None
-        exact_search_term_amazigh = None
-
-    elif search_type == "exact_word":
-        # Use word boundaries (\b) for exact word matching
-        exact_search_term_general = r'\b' + re.escape(normalized_query_general) + r'\b'
-        exact_search_term_amazigh = r'\b' + re.escape(normalized_query_amazigh) + r'\b'
-        start_search_term_general = None
-        start_search_term_amazigh = None
-        contain_search_term_general = None
-        contain_search_term_amazigh = None
-
-    else:  # Default to contains if invalid search_type
-        start_search_term_general = f"%{normalized_query_general}%"
-        start_search_term_amazigh = f"%{normalized_query_amazigh}%"
-        contain_search_term_general = f"%{normalized_query_general}%"
-        contain_search_term_amazigh = f"%{normalized_query_amazigh}%"
-        exact_search_term_general = None
-        exact_search_term_amazigh = None
-        print("Invalid search type.  Defaulting to 'contains'.")
-
+    start_search_term_amazigh = f"{normalized_query_amazigh}%"
+    contain_search_term_amazigh = f"%{normalized_query_amazigh}%"
+    exact_search_term_amazigh = r'\b' + re.escape(normalized_query_amazigh) + r'\b' # Use regex word boundaries
 
 
     # --- Search dglai14.db (Prioritized) ---
-    dglai14_results = search_dglai14(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_general, exact_search_term_amazigh)
+    dglai14_results = search_dglai14(start_search_term_general, contain_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_amazigh)
 
     # --- Search tawalt_fr.db (Secondary) ---
     remaining_results = 50 - len(dglai14_results)
     if remaining_results > 0:
-        tawalt_fr_results = search_tawalt_fr(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_general, exact_search_term_amazigh, remaining_results)
+        tawalt_fr_results = search_tawalt_fr(start_search_term_general, contain_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_amazigh, remaining_results)
         remaining_results -= len(tawalt_fr_results)
     else:
         tawalt_fr_results = []
 
     # --- Search tawalt.db (Tertiary) ---
     if remaining_results > 0:
-        tawalt_results = search_tawalt(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_general, exact_search_term_amazigh, remaining_results)
+        tawalt_results = search_tawalt(start_search_term_general, contain_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_amazigh, remaining_results)
         remaining_results -= len(tawalt_results)
     else:
         tawalt_results = []  # No need to search tawalt
 
     # --- Search eng.db (Quaternary) ---
     if remaining_results > 0:
-      eng_results = search_eng(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_general, exact_search_term_amazigh, remaining_results)
+      eng_results = search_eng(start_search_term_general, contain_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_amazigh, remaining_results)
       remaining_results -= len(eng_results)
     else:
       eng_results = []
 
     # --- Search msmun_fr.db (Quinary) ---
     if remaining_results > 0:
-        msmun_fr_m_results = search_msmun_fr_m(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_general, exact_search_term_amazigh, remaining_results)
+        msmun_fr_m_results = search_msmun_fr_m(start_search_term_general, contain_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_amazigh, remaining_results)
         remaining_results -= len(msmun_fr_m_results)
     else:
         msmun_fr_m_results = []
 
     if remaining_results > 0:
-        msmun_fr_r_results = search_msmun_fr_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_general, exact_search_term_amazigh, remaining_results)
+        msmun_fr_r_results = search_msmun_fr_r(start_search_term_general, contain_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_amazigh, remaining_results)
         remaining_results -= len(msmun_fr_r_results)
     else:
         msmun_fr_r_results = []
 
     # --- Search msmun_ar.db (Senary) ---
     if remaining_results > 0:
-        msmun_ar_m_r_results = search_msmun_ar_m_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_general, exact_search_term_amazigh, remaining_results)
+        msmun_ar_m_r_results = search_msmun_ar_m_r(start_search_term_general, contain_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_amazigh, remaining_results)
         remaining_results -= len(msmun_ar_m_r_results)
     else:
         msmun_ar_m_r_results = []
 
     if remaining_results > 0:
-        msmun_ar_r_m_results = search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_general, exact_search_term_amazigh, remaining_results)
+        msmun_ar_r_m_results = search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_amazigh, remaining_results)
         remaining_results -= len(msmun_ar_r_m_results)
     else:
         msmun_ar_r_m_results = []
@@ -166,106 +146,122 @@ def search_dictionary(query, search_type):
     return html_output
 
 
-def search_dglai14(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_general, exact_search_term_amazigh):
+def search_dglai14(start_search_term_general, contain_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_amazigh):
     conn = get_db_connection('dglai14.db')
     cursor = conn.cursor()
 
     # Add the custom SQLite function for Amazigh normalization *inside* the function that uses it
     conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text) # To be removed if the database is selectable
 
-    # Base query
-    base_query = """
+    # Start Search (dglai14)
+    cursor.execute("""
         SELECT lexie.*, sens.sens_fr, sens.sens_ar,
                expression.exp_amz, expression.exp_fr, expression.exp_ar
         FROM lexie
         LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
         LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
-        WHERE 1=1
-    """
-    conditions = []
-    params = []
+        WHERE
+        (NORMALIZE_AMAZIGH(lexie) LIKE ?) -- Use NORMALIZE_AMAZIGH for lexie (Amazigh word)
+        OR (NORMALIZE_AMAZIGH(remarque) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(variante) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(cg)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(eadata) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(pldata) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(acc)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(acc_neg)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(inacc)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fel)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fea)) LIKE ?)
+        OR (REMOVE_diacritics(LOWER(fpel)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fpea)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(sens_ar)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(expression.exp_amz) LIKE ?) -- Use NORMALIZE_AMAZIGH for exp_amz
+        OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) LIKE ?)
 
-    # --- Handle different search types ---
-    if exact_search_term_general:
-      conditions.append(" (REMOVE_DIACRITICS(LOWER(cg)) REGEXP ?)")
-      conditions.append(" OR (REMOVE_DIACRITICS(LOWER(acc)) REGEXP ?)")
-      conditions.append(" OR (REMOVE_DIACRITICS(LOWER(acc_neg)) REGEXP ?)")
-      conditions.append(" OR (REMOVE_DIACRITICS(LOWER(inacc)) REGEXP ?)")
-      conditions.append(" OR (REMOVE_DIACRITICS(LOWER(fel)) REGEXP ?)")
-      conditions.append(" OR (REMOVE_DIACRITICS(LOWER(fea)) REGEXP ?)")
-      conditions.append(" OR (REMOVE_diacritics(LOWER(fpel)) REGEXP ?)")
-      conditions.append(" OR (REMOVE_DIACRITICS(LOWER(fpea)) REGEXP ?)")
-      conditions.append(" OR (REMOVE_DIACRITICS(LOWER(sens_ar)) REGEXP ?)")
-      conditions.append(" OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) REGEXP ?)")
-      params.extend([exact_search_term_general] * 10)
+        ORDER BY lexie.id_lexie
+        LIMIT 50
+    """, (start_search_term_amazigh, start_search_term_amazigh, start_search_term_amazigh, start_search_term_general,
+          start_search_term_amazigh, start_search_term_amazigh, start_search_term_general, start_search_term_general, start_search_term_general,
+          start_search_term_general, start_search_term_general, start_search_term_general, start_search_term_general,
+          start_search_term_general, start_search_term_amazigh, start_search_term_general))
+    start_results = cursor.fetchall()
 
-    if exact_search_term_amazigh:
-      conditions.append(" (NORMALIZE_AMAZIGH(lexie) REGEXP ?)")  # Use REGEXP for exact word match
-      conditions.append(" OR (NORMALIZE_AMAZIGH(remarque) REGEXP ?)")
-      conditions.append(" OR (NORMALIZE_AMAZIGH(variante) REGEXP ?)")
-      conditions.append(" OR (NORMALIZE_AMAZIGH(eadata) REGEXP ?)")
-      conditions.append(" OR (NORMALIZE_AMAZIGH(pldata) REGEXP ?)")
-      conditions.append(" OR (NORMALIZE_AMAZIGH(expression.exp_amz) REGEXP ?)")
-      params.extend([exact_search_term_amazigh] * 6)
+    # Contain Search (dglai14)
+    cursor.execute("""
+        SELECT lexie.*, sens.sens_fr, sens.sens_ar,
+               expression.exp_amz, expression.exp_fr, expression.exp_ar
+        FROM lexie
+        LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
+        LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
+        WHERE (
+        (NORMALIZE_AMAZIGH(lexie) LIKE ?) -- Use NORMALIZE_AMAZIGH for lexie (Amazigh word)
+        OR (NORMALIZE_AMAZIGH(remarque) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(variante) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(cg)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(eadata) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(pldata) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(acc)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(acc_neg)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(inacc)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fel)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fea)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fpel)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(fpea)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(sens_ar)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(expression.exp_amz) LIKE ?) -- Use NORMALIZE_AMAZIGH for exp_amz
+        OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) LIKE ?)
+        )
+        AND NOT (NORMALIZE_AMAZIGH(lexie) LIKE ?) -- Use NORMALIZE_AMAZIGH here too
+        ORDER BY lexie.id_lexie
+        LIMIT 50
+    """, (contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_general,
+          contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_general, contain_search_term_general, contain_search_term_general,
+          contain_search_term_general, contain_search_term_general, contain_search_term_general, contain_search_term_general,
+          contain_search_term_general, contain_search_term_amazigh, contain_search_term_general,
+          start_search_term_amazigh))  # Use start_search_term_amazigh for the NOT LIKE part
+    contain_results = cursor.fetchall()
 
-    if start_search_term_general:
-        conditions.append(" (REMOVE_DIACRITICS(LOWER(cg)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(acc)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(acc_neg)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(inacc)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(fel)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(fea)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(fpel)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(fpea)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(sens_ar)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) LIKE ?)")
-        params.extend([start_search_term_general] * 10)
+    # Exact Word Search (dglai14)
+    cursor.execute("""
+        SELECT lexie.*, sens.sens_fr, sens.sens_ar,
+               expression.exp_amz, expression.exp_fr, expression.exp_ar
+        FROM lexie
+        LEFT JOIN sens ON lexie.id_lexie = sens.id_lexie
+        LEFT JOIN expression ON lexie.id_lexie = expression.id_lexie
+        WHERE (
+        (REGEXP(?, NORMALIZE_AMAZIGH(lexie))) -- Exact word match for lexie (Amazigh word)
+        OR (REGEXP(?, NORMALIZE_AMAZIGH(remarque)))
+        OR (REGEXP(?, NORMALIZE_AMAZIGH(variante)))
+        OR (REGEXP(?, REMOVE_DIACRITICS(LOWER(cg))))
+        OR (REGEXP(?, NORMALIZE_AMAZIGH(eadata)))
+        OR (REGEXP(?, NORMALIZE_AMAZIGH(pldata)))
+        OR (REGEXP(?, REMOVE_DIACRITICS(LOWER(acc))))
+        OR (REGEXP(?, REMOVE_DIACRITICS(LOWER(acc_neg))))
+        OR (REGEXP(?, REMOVE_DIACRITICS(LOWER(inacc))))
+        OR (REGEXP(?, REMOVE_DIACRITICS(LOWER(fel))))
+        OR (REGEXP(?, REMOVE_DIACRITICS(LOWER(fea))))
+        OR (REGEXP(?, REMOVE_DIACRITICS(LOWER(fpel))))
+        OR (REGEXP(?, REMOVE_DIACRITICS(LOWER(fpea))))
+        OR (REGEXP(?, REMOVE_DIACRITICS(LOWER(sens_ar))))
+        OR (REGEXP(?, NORMALIZE_AMAZIGH(expression.exp_amz))) -- Exact word match for exp_amz
+        OR (REGEXP(?, REMOVE_DIACRITICS(LOWER(expression.exp_ar))))
+        )
+        AND NOT (NORMALIZE_AMAZIGH(lexie) LIKE ?) -- Exclude start_results
+        AND NOT (NORMALIZE_AMAZIGH(lexie) LIKE ?) -- Exclude contain_results
+        ORDER BY lexie.id_lexie
+        LIMIT 50
+    """, (exact_search_term_amazigh, exact_search_term_amazigh, exact_search_term_amazigh, exact_search_term_general,
+          exact_search_term_amazigh, exact_search_term_amazigh, exact_search_term_general, exact_search_term_general, exact_search_term_general,
+          exact_search_term_general, exact_search_term_general, exact_search_term_general, exact_search_term_general,
+          exact_search_term_general, exact_search_term_amazigh, exact_search_term_general,
+          start_search_term_amazigh, contain_search_term_amazigh)) # Exclude start and contain results
+    exact_results = cursor.fetchall()
 
-    if start_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(lexie) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(remarque) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(variante) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(eadata) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(pldata) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(expression.exp_amz) LIKE ?)")  # Use NORMALIZE_AMAZIGH for exp_amz
-        params.extend([start_search_term_amazigh] * 6)
-
-    if contain_search_term_general:
-        conditions.append(" (REMOVE_DIACRITICS(LOWER(cg)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(acc)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(acc_neg)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(inacc)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(fel)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(fea)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(fpel)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(fpea)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(sens_ar)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(expression.exp_ar)) LIKE ?)")
-        params.extend([contain_search_term_general] * 10)
-
-    if contain_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(lexie) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(remarque) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(variante) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(eadata) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(pldata) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(expression.exp_amz) LIKE ?)")  # Use NORMALIZE_AMAZIGH for exp_amz
-        params.extend([contain_search_term_amazigh] * 6)
-
-    if conditions:
-      where_clause = " AND (" + " OR ".join(conditions) + ")"
-      final_query = base_query + where_clause + " ORDER BY lexie.id_lexie LIMIT 50"
-      cursor.execute(final_query, params)
-      results = cursor.fetchall()
-    else:
-      results = []
 
     conn.close()
-    return results
+    return list(start_results) + list(contain_results) + list(exact_results)
 
-
-
-def search_tawalt_fr(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_general, exact_search_term_amazigh, limit):
+def search_tawalt_fr(start_search_term_general, contain_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_amazigh, limit):
     conn = get_db_connection('tawalt_fr.db')
     cursor = conn.cursor()
 
@@ -273,401 +269,875 @@ def search_tawalt_fr(start_search_term_general, contain_search_term_general, sta
     conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
     conn.create_function("NORMALIZE_FRENCH", 1, normalize_french_text)
 
-    # Base query
-    base_query = """
+    # Start Search (tawalt_fr)
+    cursor.execute("""
         SELECT *
         FROM words
-        WHERE 1=1
-    """
-    conditions = []
-    params = []
+        WHERE
+        (NORMALIZE_AMAZIGH(tifinagh) LIKE ?)
+        OR (NORMALIZE_FRENCH(french) LIKE ?)
+        ORDER BY _id
+        LIMIT ?
+    """, (start_search_term_amazigh, start_search_term_general, limit))
+    start_results = cursor.fetchall()
 
-    if exact_search_term_general:
-        conditions.append(" (NORMALIZE_FRENCH(french) REGEXP ?)")
-        params.append(exact_search_term_general)
+    # Contain Search (tawalt_fr)
+    cursor.execute("""
+        SELECT *
+        FROM words
+        WHERE (
+        (NORMALIZE_AMAZIGH(tifinagh) LIKE ?)
+        OR (NORMALIZE_FRENCH(french) LIKE ?)
+        )
+        AND NOT (NORMALIZE_AMAZIGH(tifinagh) LIKE ?)
+        ORDER BY _id
+        LIMIT ?
+    """, (contain_search_term_amazigh, contain_search_term_general, start_search_term_amazigh, limit))
+    contain_results = cursor.fetchall()
 
-    if exact_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(tifinagh) REGEXP ?)")
-        params.append(exact_search_term_amazigh)
+    # Exact Word Search (tawalt_fr)
+    cursor.execute("""
+        SELECT *
+        FROM words
+        WHERE (
+        (REGEXP(?, NORMALIZE_AMAZIGH(tifinagh)))
+        OR (REGEXP(?, NORMALIZE_FRENCH(french)))
+        )
+        AND NOT (NORMALIZE_AMAZIGH(tifinagh) LIKE ?) -- Exclude start_results
+        AND NOT (NORMALIZE_AMAZIGH(tifinagh) LIKE ?) -- Exclude contain_results
+        ORDER BY _id
+        LIMIT ?
+    """, (exact_search_term_amazigh, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit))
+    exact_results = cursor.fetchall()
 
-    if start_search_term_general:
-        conditions.append(" (NORMALIZE_FRENCH(french) LIKE ?)")
-        params.append(start_search_term_general)
-
-    if start_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(tifinagh) LIKE ?)")
-        params.append(start_search_term_amazigh)
-
-    if contain_search_term_general:
-        conditions.append(" (NORMALIZE_FRENCH(french) LIKE ?)")
-        params.append(contain_search_term_general)
-
-    if contain_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(tifinagh) LIKE ?)")
-        params.append(contain_search_term_amazigh)
-
-
-    if conditions:
-        where_clause = " AND (" + " OR ".join(conditions) + ")"
-        final_query = base_query + where_clause + " ORDER BY _id LIMIT ?"
-        params.append(limit)  # Add the limit parameter
-        cursor.execute(final_query, params)
-        results = cursor.fetchall()
-    else:
-        results = []
 
     conn.close()
-    return results
+    return list(start_results) + list(contain_results) + list(exact_results)
 
 
-
-def search_tawalt(start_search_term_general, contain_search_term_general,start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_general, exact_search_term_amazigh, limit):
+def search_tawalt(start_search_term_general, contain_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_amazigh, limit):
     conn = get_db_connection('tawalt.db')
     cursor = conn.cursor()
 
     # Add the custom SQLite function for Amazigh normalization
     conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)  #To be removed if the database is selectable
 
-    # Base query
-    base_query = """
+    # Start Search (tawalt)
+    cursor.execute("""
         SELECT *
         FROM words
-        WHERE 1=1
-    """
+        WHERE
+        (NORMALIZE_AMAZIGH(tifinagh) LIKE ?) -- Use NORMALIZE_AMAZIGH for tifinagh
+        OR (REMOVE_DIACRITICS(LOWER(arabic)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(arabic_meaning)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(tifinagh_in_arabic) LIKE ?) -- Use NORMALIZE_AMAZIGH
+        OR (REMOVE_DIACRITICS(LOWER(_arabic)) LIKE ?)  -- Corrected: REMOVE_DIACRITICS for arabic columns
+        OR (REMOVE_DIACRITICS(LOWER(_arabic_meaning)) LIKE ?) -- Corrected: REMOVE_DIACRITICS for arabic columns
+        OR (NORMALIZE_AMAZIGH(_tifinagh_in_arabic) LIKE ?)
+        ORDER BY _id
+        LIMIT ?
+    """, (start_search_term_amazigh, start_search_term_general, start_search_term_general, start_search_term_amazigh,
+          start_search_term_general, start_search_term_general, start_search_term_amazigh, limit))
+    start_results = cursor.fetchall()
 
-    conditions = []
-    params = []
+    # Contain Search (tawalt)
+    cursor.execute("""
+        SELECT *
+        FROM words
+        WHERE (
+        (NORMALIZE_AMAZIGH(tifinagh) LIKE ?) -- Use NORMALIZE_AMAZIGH for tifinagh
+        OR (REMOVE_DIACRITICS(LOWER(arabic)) LIKE ?)
+        OR (REMOVE_DIACRITICS(LOWER(arabic_meaning)) LIKE ?)
+        OR (NORMALIZE_AMAZIGH(tifinagh_in_arabic) LIKE ?) -- Use NORMALIZE_AMAZIGH
+        OR (REMOVE_DIACRITICS(LOWER(_arabic)) LIKE ?)  -- Corrected: REMOVE_DIACRITICS for arabic columns
+        OR (REMOVE_DIACRITICS(LOWER(_arabic_meaning)) LIKE ?) -- Corrected: REMOVE_DIACRITICS for arabic columns
+        OR (NORMALIZE_AMAZIGH(_tifinagh_in_arabic) LIKE ?)
+        )
+        AND NOT (NORMALIZE_AMAZIGH(tifinagh) LIKE ?) -- Use NORMALIZE_AMAZIGH
+        ORDER BY _id
+        LIMIT ?
+    """, (contain_search_term_amazigh, contain_search_term_general, contain_search_term_general, contain_search_term_amazigh,
+          contain_search_term_general, contain_search_term_general, contain_search_term_amazigh,
+          start_search_term_amazigh, limit)) # Use start_search_term_amazigh for NOT LIKE
+    contain_results = cursor.fetchall()
 
-    if exact_search_term_general:
-        conditions.append(" (REMOVE_DIACRITICS(LOWER(arabic)) REGEXP ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(arabic_meaning)) REGEXP ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(_arabic)) REGEXP ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(_arabic_meaning)) REGEXP ?)")
-        params.extend([exact_search_term_general] * 4)
-
-    if exact_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(tifinagh) REGEXP ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(tifinagh_in_arabic) REGEXP ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(_tifinagh_in_arabic) REGEXP ?)")
-        params.extend([exact_search_term_amazigh] * 3)
-
-    if start_search_term_general:
-        conditions.append(" (REMOVE_DIACRITICS(LOWER(arabic)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(arabic_meaning)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(_arabic)) LIKE ?)")  # Corrected: REMOVE_DIACRITICS for arabic columns
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(_arabic_meaning)) LIKE ?)")
-        params.extend([start_search_term_general] * 4)
-
-
-    if start_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(tifinagh) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(tifinagh_in_arabic) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(_tifinagh_in_arabic) LIKE ?)")
-        params.extend([start_search_term_amazigh] * 3)
-
-
-    if contain_search_term_general:
-        conditions.append(" (REMOVE_DIACRITICS(LOWER(arabic)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(arabic_meaning)) LIKE ?)")
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(_arabic)) LIKE ?)")  # Corrected: REMOVE_DIACRITICS for arabic columns
-        conditions.append(" OR (REMOVE_DIACRITICS(LOWER(_arabic_meaning)) LIKE ?)")
-        params.extend([contain_search_term_general] * 4)
-
-
-    if contain_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(tifinagh) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(tifinagh_in_arabic) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(_tifinagh_in_arabic) LIKE ?)")
-        params.extend([contain_search_term_amazigh] * 3)
-
-
-    if conditions:
-        where_clause = " AND (" + " OR ".join(conditions) + ")"
-        final_query = base_query + where_clause + " ORDER BY _id LIMIT ?"
-        params.append(limit)
-        cursor.execute(final_query, params)
-        results = cursor.fetchall()
-    else:
-        results = []
+    # Exact Word Search (tawalt)
+    cursor.execute("""
+        SELECT *
+        FROM words
+        WHERE (
+        (REGEXP(?, NORMALIZE_AMAZIGH(tifinagh))) -- Use NORMALIZE_AMAZIGH for tifinagh
+        OR (REGEXP(?, REMOVE_DIACRITICS(LOWER(arabic))))
+        OR (REGEXP(?, REMOVE_DIACRITICS(LOWER(arabic_meaning))))
+        OR (REGEXP(?, NORMALIZE_AMAZIGH(tifinagh_in_arabic))) -- Use NORMALIZE_AMAZIGH
+        OR (REGEXP(?, REMOVE_DIACRITICS(LOWER(_arabic))))  -- Corrected: REMOVE_DIACRITICS for arabic columns
+        OR (REGEXP(?, REMOVE_DIACRITICS(LOWER(_arabic_meaning)))) -- Corrected: REMOVE_DIACRITICS for arabic columns
+        OR (REGEXP(?, NORMALIZE_AMAZIGH(_tifinagh_in_arabic)))
+        )
+        AND NOT (NORMALIZE_AMAZIGH(tifinagh) LIKE ?) -- Exclude start results
+        AND NOT (NORMALIZE_AMAZIGH(tifinagh) LIKE ?) -- Exclude contain results
+        ORDER BY _id
+        LIMIT ?
+    """, (exact_search_term_amazigh, exact_search_term_general, exact_search_term_general, exact_search_term_amazigh,
+          exact_search_term_general, exact_search_term_general, exact_search_term_amazigh,
+          start_search_term_amazigh, contain_search_term_amazigh, limit)) # Use start_search_term_amazigh for NOT LIKE
+    exact_results = cursor.fetchall()
 
     conn.close()
-    return results
+    return list(start_results) + list(contain_results) + list(exact_results)
 
-
-def search_eng(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_general, exact_search_term_amazigh, limit):
+def search_eng(start_search_term_general, contain_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_amazigh, limit):
     conn = get_db_connection('eng.db')
     cursor = conn.cursor()
     conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
 
-    base_query = """
+    cursor.execute("""
         SELECT da.*, dea.sens_eng
         FROM Dictionary_Amazigh_full AS da
         LEFT JOIN Dictionary_English_Amazih_links AS dea ON da.id_lexie = dea.id_lexie
-        WHERE 1=1
-    """
-    conditions = []
-    params = []
+        WHERE (
+            NORMALIZE_AMAZIGH(da.lexie) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.remarque) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.variante) LIKE ?
+            OR LOWER(da.cg) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.eadata) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.pldata) LIKE ?
+            OR LOWER(da.acc) LIKE ?
+            OR LOWER(da.acc_neg) LIKE ?
+            OR LOWER(da.inacc) LIKE ?
+            OR LOWER(dea.sens_eng) LIKE ?
+        )
+        ORDER BY da.id_lexie
+        LIMIT ?
+    """, (start_search_term_amazigh, start_search_term_amazigh, start_search_term_amazigh, start_search_term_general,
+          start_search_term_amazigh, start_search_term_amazigh, start_search_term_general, start_search_term_general,
+          start_search_term_general, start_search_term_general, limit))
 
-    if exact_search_term_general:
-        conditions.append(" (LOWER(da.cg) REGEXP ?)")
-        conditions.append(" OR (LOWER(da.acc) REGEXP ?)")
-        conditions.append(" OR (LOWER(da.acc_neg) REGEXP ?)")
-        conditions.append(" OR (LOWER(da.inacc) REGEXP ?)")
-        conditions.append(" OR (LOWER(dea.sens_eng) REGEXP ?)")
-        params.extend([exact_search_term_general] * 5)
+    start_results = cursor.fetchall()
 
+    cursor.execute("""
+      SELECT da.*, dea.sens_eng
+        FROM Dictionary_Amazigh_full AS da
+        LEFT JOIN Dictionary_English_Amazih_links AS dea ON da.id_lexie = dea.id_lexie
+        WHERE (
+            NORMALIZE_AMAZIGH(da.lexie) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.remarque) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.variante) LIKE ?
+            OR LOWER(da.cg) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.eadata) LIKE ?
+            OR NORMALIZE_AMAZIGH(da.pldata) LIKE ?
+            OR LOWER(da.acc) LIKE ?
+            OR LOWER(da.acc_neg) LIKE ?
+            OR LOWER(da.inacc) LIKE ?
+            OR LOWER(dea.sens_eng) LIKE ?
+        )
+        AND NOT NORMALIZE_AMAZIGH(da.lexie) LIKE ?
+        ORDER BY da.id_lexie
+        LIMIT ?
+    """, (contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_general,
+          contain_search_term_amazigh, contain_search_term_amazigh, contain_search_term_general, contain_search_term_general,
+          contain_search_term_general, contain_search_term_general, start_search_term_amazigh, limit))
+    contain_results = cursor.fetchall()
 
-    if exact_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(da.lexie) REGEXP ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(da.remarque) REGEXP ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(da.variante) REGEXP ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(da.eadata) REGEXP ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(da.pldata) REGEXP ?)")
-        params.extend([exact_search_term_amazigh] * 5)
+    # Exact Word Search (eng)
+    cursor.execute("""
+      SELECT da.*, dea.sens_eng
+        FROM Dictionary_Amazigh_full AS da
+        LEFT JOIN Dictionary_English_Amazih_links AS dea ON da.id_lexie = dea.id_lexie
+        WHERE (
+            REGEXP(?, NORMALIZE_AMAZIGH(da.lexie))
+            OR REGEXP(?, NORMALIZE_AMAZIGH(da.remarque))
+            OR REGEXP(?, NORMALIZE_AMAZIGH(da.variante))
+            OR REGEXP(?, LOWER(da.cg))
+            OR REGEXP(?, NORMALIZE_AMAZIGH(da.eadata))
+            OR REGEXP(?, NORMALIZE_AMAZIGH(da.pldata))
+            OR REGEXP(?, LOWER(da.acc))
+            OR REGEXP(?, LOWER(da.acc_neg))
+            OR REGEXP(?, LOWER(da.inacc))
+            OR REGEXP(?, LOWER(dea.sens_eng))
+        )
+        AND NOT NORMALIZE_AMAZIGH(da.lexie) LIKE ? -- Exclude start results
+        AND NOT NORMALIZE_AMAZIGH(da.lexie) LIKE ? -- Exclude contain results
+        ORDER BY da.id_lexie
+        LIMIT ?
+    """, (exact_search_term_amazigh, exact_search_term_amazigh, exact_search_term_amazigh, exact_search_term_general,
+          exact_search_term_amazigh, exact_search_term_amazigh, exact_search_term_general, exact_search_term_general,
+          exact_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit))
+    exact_results = cursor.fetchall()
 
-
-    if start_search_term_general:
-        conditions.append(" (LOWER(da.cg) LIKE ?)")
-        conditions.append(" OR (LOWER(da.acc) LIKE ?)")
-        conditions.append(" OR (LOWER(da.acc_neg) LIKE ?)")
-        conditions.append(" OR (LOWER(da.inacc) LIKE ?)")
-        conditions.append(" OR (LOWER(dea.sens_eng) LIKE ?)")
-        params.extend([start_search_term_general] * 5)
-
-    if start_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(da.lexie) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(da.remarque) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(da.variante) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(da.eadata) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(da.pldata) LIKE ?)")
-        params.extend([start_search_term_amazigh] * 5)
-
-    if contain_search_term_general:
-        conditions.append(" (LOWER(da.cg) LIKE ?)")
-        conditions.append(" OR (LOWER(da.acc) LIKE ?)")
-        conditions.append(" OR (LOWER(da.acc_neg) LIKE ?)")
-        conditions.append(" OR (LOWER(da.inacc) LIKE ?)")
-        conditions.append(" OR (LOWER(dea.sens_eng) LIKE ?)")
-        params.extend([contain_search_term_general] * 5)
-
-    if contain_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(da.lexie) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(da.remarque) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(da.variante) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(da.eadata) LIKE ?)")
-        conditions.append(" OR (NORMALIZE_AMAZIGH(da.pldata) LIKE ?)")
-        params.extend([contain_search_term_amazigh] * 5)
-
-    if conditions:
-        where_clause = " AND (" + " OR ".join(conditions) + ")"
-        final_query = base_query + where_clause + " ORDER BY da.id_lexie LIMIT ?"
-        params.append(limit)
-        cursor.execute(final_query, params)
-        results = cursor.fetchall()
-
-    else:
-        results = []
     conn.close()
-    return results
+    return list(start_results) + list(contain_results) + list(exact_results)
 
-def search_msmun_fr_m(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_general, exact_search_term_amazigh, limit):
+def search_msmun_fr_m(start_search_term_general, contain_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_amazigh, limit):
     conn = get_db_connection('msmun_fr.db')
     cursor = conn.cursor()
     conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
     conn.create_function("NORMALIZE_FRENCH", 1, normalize_french_text)
 
-    base_query = """
+    cursor.execute("""
         SELECT *
         FROM table_m
-        WHERE 1=1
-    """
+        WHERE (
+            NORMALIZE_AMAZIGH(word) LIKE ?
+            OR NORMALIZE_FRENCH(result) LIKE ?
+        )
+        ORDER BY _id
+        LIMIT ?
+    """, (start_search_term_amazigh, start_search_term_general, limit))
+    start_results = cursor.fetchall()
 
-    conditions = []
-    params = []
+    cursor.execute("""
+        SELECT *
+        FROM table_m
+        WHERE (
+            NORMALIZE_AMAZIGH(word) LIKE ?
+            OR NORMALIZE_FRENCH(result) LIKE ?
+        )
+        AND NOT NORMALIZE_AMAZIGH(word) LIKE ?
+        ORDER BY _id
+        LIMIT ?
+    """, (contain_search_term_amazigh, contain_search_term_general, start_search_term_amazigh, limit))
+    contain_results = cursor.fetchall()
 
-    if exact_search_term_general:
-        conditions.append(" (NORMALIZE_FRENCH(result) REGEXP ?)")
-        params.append(exact_search_term_general)
+    # Exact Word Search (msmun_fr_m)
+    cursor.execute("""
+        SELECT *
+        FROM table_m
+        WHERE (
+            REGEXP(?, NORMALIZE_AMAZIGH(word))
+            OR REGEXP(?, NORMALIZE_FRENCH(result))
+        )
+        AND NOT NORMALIZE_AMAZIGH(word) LIKE ? -- Exclude start results
+        AND NOT NORMALIZE_AMAZIGH(word) LIKE ? -- Exclude contain results
+        ORDER BY _id
+        LIMIT ?
+    """, (exact_search_term_amazigh, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit))
+    exact_results = cursor.fetchall()
 
-    if exact_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(word) REGEXP ?)")
-        params.append(exact_search_term_amazigh)
-
-    if start_search_term_general:
-       conditions.append(" (NORMALIZE_FRENCH(result) LIKE ?)")
-       params.append(start_search_term_general)
-
-    if start_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(word) LIKE ?)")
-        params.append(start_search_term_amazigh)
-
-    if contain_search_term_general:
-        conditions.append(" (NORMALIZE_FRENCH(result) LIKE ?)")
-        params.append(contain_search_term_general)
-
-    if contain_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(word) LIKE ?)")
-        params.append(contain_search_term_amazigh)
-
-    if conditions:
-        where_clause = " AND (" + " OR ".join(conditions) + ")"
-        final_query = base_query + where_clause + " ORDER BY _id LIMIT ?"
-        params.append(limit)
-        cursor.execute(final_query, params)
-        results = cursor.fetchall()
-    else:
-        results = []
 
     conn.close()
-    return results
+    return list(start_results) + list(contain_results) + list(exact_results)
 
-def search_msmun_fr_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_general, exact_search_term_amazigh, limit):
+def search_msmun_fr_r(start_search_term_general, contain_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_amazigh, limit):
     conn = get_db_connection('msmun_fr.db')
     cursor = conn.cursor()
     conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
     conn.create_function("NORMALIZE_FRENCH", 1, normalize_french_text)
 
-    base_query = """
-      SELECT *
-      FROM table_r
-      WHERE 1=1
-    """
-    conditions = []
-    params = []
+    cursor.execute("""
+        SELECT *
+        FROM table_r
+        WHERE (
+            NORMALIZE_FRENCH(word) LIKE ?
+            OR NORMALIZE_AMAZIGH(result) LIKE ?
+        )
+        ORDER BY _id
+        LIMIT ?
+    """, (start_search_term_general, start_search_term_amazigh, limit))
+    start_results = cursor.fetchall()
 
-    if exact_search_term_general:
-        conditions.append(" (NORMALIZE_FRENCH(word) REGEXP ?)")
-        params.append(exact_search_term_general)
+    cursor.execute("""
+        SELECT *
+        FROM table_r
+        WHERE (
+            NORMALIZE_FRENCH(word) LIKE ?
+            OR NORMALIZE_AMAZIGH(result) LIKE ?
+        )
+        AND NOT NORMALIZE_FRENCH(word) LIKE ?
+        ORDER BY _id
+        LIMIT ?
+    """, (contain_search_term_general, contain_search_term_amazigh, start_search_term_general, limit))
+    contain_results = cursor.fetchall()
 
-    if exact_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(result) REGEXP ?)")
-        params.append(exact_search_term_amazigh)
-
-    if start_search_term_general:
-        conditions.append(" (NORMALIZE_FRENCH(word) LIKE ?)")
-        params.append(start_search_term_general)
-
-    if start_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(result) LIKE ?)")
-        params.append(start_search_term_amazigh)
-
-
-    if contain_search_term_general:
-        conditions.append(" (NORMALIZE_FRENCH(word) LIKE ?)")
-        params.append(contain_search_term_general)
-
-    if contain_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(result) LIKE ?)")
-        params.append(contain_search_term_amazigh)
-
-    if conditions:
-      where_clause = " AND (" + " OR ".join(conditions) + ")"
-      final_query = base_query + where_clause + " ORDER BY _id LIMIT ?"
-      params.append(limit)
-      cursor.execute(final_query, params)
-      results = cursor.fetchall()
-    else:
-      results = []
+    # Exact word search (msmun_fr_r)
+    cursor.execute("""
+        SELECT *
+        FROM table_r
+        WHERE (
+            REGEXP(?, NORMALIZE_FRENCH(word))
+            OR REGEXP(?, NORMALIZE_AMAZIGH(result))
+        )
+        AND NOT NORMALIZE_FRENCH(word) LIKE ? -- Exclude start results
+        AND NOT NORMALIZE_FRENCH(word) LIKE ? -- Exclude contain results
+        ORDER BY _id
+        LIMIT ?
+    """, (exact_search_term_general, exact_search_term_amazigh, start_search_term_general, contain_search_term_general, limit))
+    exact_results = cursor.fetchall()
 
     conn.close()
-    return results
+    return list(start_results) + list(contain_results) + list(exact_results)
 
 
-def search_msmun_ar_m_r(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_general, exact_search_term_amazigh, limit):
+def search_msmun_ar_m_r(start_search_term_general, contain_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_amazigh, limit):
     conn = get_db_connection('msmun_ar.db')
     cursor = conn.cursor()
     conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
 
-    base_query = """
+    cursor.execute("""
         SELECT *
         FROM table_m_r
-        WHERE 1=1
-    """
-    conditions = []
-    params = []
+        WHERE (
+            NORMALIZE_AMAZIGH(word) LIKE ?
+            OR REMOVE_DIACRITICS(LOWER(result)) LIKE ?
+        )
+        ORDER BY _id
+        LIMIT ?
+    """, (start_search_term_amazigh, start_search_term_general, limit))
+    start_results = cursor.fetchall()
 
-    if exact_search_term_general:
-        conditions.append(" (REMOVE_DIACRITICS(LOWER(result)) REGEXP ?)")
-        params.append(exact_search_term_general)
+    cursor.execute("""
+        SELECT *
+        FROM table_m_r
+        WHERE (
+            NORMALIZE_AMAZIGH(word) LIKE ?
+            OR REMOVE_DIACRITICS(LOWER(result)) LIKE ?
+        )
+        AND NOT NORMALIZE_AMAZIGH(word) LIKE ?
+        ORDER BY _id
+        LIMIT ?
+    """, (contain_search_term_amazigh, contain_search_term_general, start_search_term_amazigh, limit))
+    contain_results = cursor.fetchall()
 
-    if exact_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(word) REGEXP ?)")
-        params.append(exact_search_term_amazigh)
-
-    if start_search_term_general:
-        conditions.append(" (REMOVE_DIACRITICS(LOWER(result)) LIKE ?)")
-        params.append(start_search_term_general)
-
-    if start_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(word) LIKE ?)")
-        params.append(start_search_term_amazigh)
-
-    if contain_search_term_general:
-        conditions.append(" (REMOVE_DIACRITICS(LOWER(result)) LIKE ?)")
-        params.append(contain_search_term_general)
-
-    if contain_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(word) LIKE ?)")
-        params.append(contain_search_term_amazigh)
-
-    if conditions:
-        where_clause = " AND (" + " OR ".join(conditions) + ")"
-        final_query = base_query + where_clause + " ORDER BY _id LIMIT ?"
-        params.append(limit)
-        cursor.execute(final_query, params)
-        results = cursor.fetchall()
-    else:
-        results = []
+    # Exact word search (msmun_ar_m_r)
+    cursor.execute("""
+        SELECT *
+        FROM table_m_r
+        WHERE (
+            REGEXP(?, NORMALIZE_AMAZIGH(word))
+            OR REGEXP(?, REMOVE_DIACRITICS(LOWER(result)))
+        )
+        AND NOT NORMALIZE_AMAZIGH(word) LIKE ? -- Exclude start results
+        AND NOT NORMALIZE_AMAZIGH(word) LIKE ? -- Exclude contain results
+        ORDER BY _id
+        LIMIT ?
+    """, (exact_search_term_amazigh, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, limit))
+    exact_results = cursor.fetchall()
 
     conn.close()
-    return results
+    return list(start_results) + list(contain_results) + list(exact_results)
 
-def search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_general, exact_search_term_amazigh, limit):
+def search_msmun_ar_r_m(start_search_term_general, contain_search_term_general, exact_search_term_general, start_search_term_amazigh, contain_search_term_amazigh, exact_search_term_amazigh, limit):
     conn = get_db_connection('msmun_ar.db')
     cursor = conn.cursor()
     conn.create_function("NORMALIZE_AMAZIGH", 1, normalize_amazigh_text)
 
-    base_query = """
+    cursor.execute("""
         SELECT *
         FROM table_r_m
-        WHERE 1=1
-    """
-    conditions = []
-    params = []
+        WHERE (
+            REMOVE_DIACRITICS(LOWER(word)) LIKE ?
+            OR NORMALIZE_AMAZIGH(result) LIKE ?
+        )
+        ORDER BY _id
+        LIMIT ?
+    """, (start_search_term_general, start_search_term_amazigh, limit))
+    start_results = cursor.fetchall()
 
-    if exact_search_term_general:
-        conditions.append(" (REMOVE_DIACRITICS(LOWER(word)) REGEXP ?)")
-        params.append(exact_search_term_general)
+    cursor.execute("""
+        SELECT *
+        FROM table_r_m
+        WHERE (
+            REMOVE_DIACRITICS(LOWER(word)) LIKE ?
+            OR NORMALIZE_AMAZIGH(result) LIKE ?
+        )
+        AND NOT REMOVE_DIACRITICS(LOWER(word)) LIKE ?
+        ORDER BY _id
+        LIMIT ?
+    """, (contain_search_term_general, contain_search_term_amazigh, start_search_term_general, limit))
+    contain_results = cursor.fetchall()
 
-    if exact_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(result) REGEXP ?)")
-        params.append(exact_search_term_amazigh)
-
-    if start_search_term_general:
-        conditions.append(" (REMOVE_DIACRITICS(LOWER(word)) LIKE ?)")
-        params.append(start_search_term_general)
-
-    if start_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(result) LIKE ?)")
-        params.append(start_search_term_amazigh)
-
-    if contain_search_term_general:
-        conditions.append(" (REMOVE_DIACRITICS(LOWER(word)) LIKE ?)")
-        params.append(contain_search_term_general)
-
-    if contain_search_term_amazigh:
-        conditions.append(" (NORMALIZE_AMAZIGH(result) LIKE ?)")
-        params.append(contain_search_term_amazigh)
-
-
-    if conditions:
-        where_clause = " AND (" + " OR ".join(conditions) + ")"
-        final_query = base_query + where_clause + " ORDER BY _id LIMIT ?"
-        params.append(limit)
-        cursor.execute(final_query, params)
-        results = cursor.fetchall()
-    else:
-        results = []
+    # Exact word search (msmun_ar_r_m)
+    cursor.execute("""
+        SELECT *
+        FROM table_r_m
+        WHERE (
+            REGEXP(?, REMOVE_DIACRITICS(LOWER(word)))
+            OR REGEXP(?, NORMALIZE_AMAZIGH(result))
+        )
+        AND NOT REMOVE_DIACRITICS(LOWER(word)) LIKE ? -- Exclude start results
+        AND NOT REMOVE_DIACRITICS(LOWER(word)) LIKE ? -- Exclude contain results
+        ORDER BY _id
+        LIMIT ?
+    """, (exact_search_term_general, exact_search_term_amazigh, start_search_term_general, contain_search_term_general, limit))
+    exact_results = cursor.fetchall()
 
     conn.close()
-    return results
+    return list(start_results) + list(contain_results) + list(exact_results)
+
+
+def format_dglai14_results(results):
+    return format_results_generic(results, "dglai14")
+
+def format_tawalt_fr_results(results):
+    return format_results_generic(results, "tawalt_fr")
+
+def format_tawalt_results(results):
+    return format_results_generic(results, "tawalt")
+
+def format_eng_results(results):
+    return format_results_generic(results, "eng")
+
+def format_msmun_fr_m_results(results):
+    return format_results_generic(results, "msmun_fr_m")
+
+def format_msmun_fr_r_results(results):
+    return format_results_generic(results, "msmun_fr_r")
+
+def format_msmun_ar_m_r_results(results):
+    return format_results_generic(results, "msmun_ar_m_r")
+
+def format_msmun_ar_r_m_results(results):
+    return format_results_generic(results, "msmun_ar_r_m")
+
+
+def format_results_generic(results, db_type):
+    if not results:
+        return ""
+
+    if db_type == "dglai14" or db_type == "eng":
+        if db_type == "dglai14":
+            return format_dglai14_results_aggregated(results)
+        elif db_type == "eng":
+            return format_eng_results_aggregated(results)
+    elif db_type == "tawalt_fr":
+        return format_tawalt_fr_results_list(results)
+    elif db_type == "tawalt":
+        return format_tawalt_results_list(results)
+    elif db_type == "msmun_fr_m":
+        return format_msmun_fr_m_results_list(results)
+    elif db_type == "msmun_fr_r":
+        return format_msmun_fr_r_results_list(results)
+    elif db_type == "msmun_ar_m_r":
+        return format_msmun_ar_m_r_results_list(results)
+    elif db_type == "msmun_ar_r_m":
+        return format_msmun_ar_r_m_results_list(results)
+    return ""
+
+
+def format_dglai14_results_aggregated(results):
+    """Formats aggregated results from dglai14.db."""
+    if not results:
+        return ""
+
+    aggregated_results = {}
+    for row in results:
+        lexie_id = row['id_lexie']
+        if lexie_id not in aggregated_results:
+            aggregated_results[lexie_id] = {
+                'lexie': row['lexie'],
+                'remarque': row['remarque'],
+                'variante': row['variante'],
+                'cg': row['cg'],
+                'eadata': row['eadata'],
+                'pldata': row['pldata'],
+                'acc': row['acc'],
+                'acc_neg': row['acc_neg'],
+                'inacc': row['inacc'],
+                'fel': row['fel'],
+                'fea': row['fea'],
+                'fpel': row['fpel'],
+                'fpea': row['fpea'],
+                'sens_frs': set(),
+                'sens_ars': set(),
+                'expressions': {}
+            }
+        aggregated_results[lexie_id]['sens_frs'].add(row['sens_fr'])
+        aggregated_results[lexie_id]['sens_ars'].add(row['sens_ar'])
+        if row['exp_amz']:
+            exp_amz = row['exp_amz']
+            if exp_amz not in aggregated_results[lexie_id]['expressions']:
+                aggregated_results[lexie_id]['expressions'][exp_amz] = {
+                    'french_translations': set(),
+                    'arabic_translations': set()
+                }
+            if row['exp_fr']:
+                aggregated_results[lexie_id]['expressions'][exp_amz]['french_translations'].add(row['exp_fr'])
+            if row['exp_ar']:
+                aggregated_results[lexie_id]['expressions'][exp_amz]['arabic_translations'].add(row['exp_ar'])
+
+    html_output = ""
+    for lexie_id, data in aggregated_results.items():
+        html_output += f"""
+        <div style="background: #f0f8ff; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{data['lexie'] or ''}</h3>
+                <span style="background: #3498db; color: white; padding: 4px 8px; border-radius: 4px;">{data['cg'] or ''}</span>
+            </div>
+        """
+
+        fields = {
+            'Notes': 'remarque',
+            'Construct State': 'eadata',
+            'Plural': 'pldata',
+            'Accomplished': 'acc',
+            'Negative Accomplished': 'acc_neg',
+            'Unaccomplished': 'inacc',
+            'Variants': 'variante',
+            'Feminine': 'fel',
+            'Feminine Construct': 'fea',
+            'Feminine Plural': 'fpel',
+            'Feminine Plural Construct': 'fpea',
+        }
+
+        for label, field in fields.items():
+            if data[field]:
+                html_output += f"""
+                <div style="margin-bottom: 8px;">
+                    <strong style="color: #34495e;">{label}:</strong>
+                    <span style="color: black;">{data[field]}</span>
+                </div>
+                """
+
+        french_translations = ", ".join(filter(None, data['sens_frs']))
+        arabic_translations = ", ".join(filter(None, data['sens_ars']))
+
+        if french_translations:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">French Translation:</strong>
+                <span style="color: black;">{french_translations}</span>
+            </div>
+            """
+        if arabic_translations:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Arabic Translation:</strong>
+                <span style="color: black;">{arabic_translations}</span>
+            </div>
+            """
+
+        if data['expressions']:
+            html_output += f"""
+            <div style="margin-top: 10px; border-top: 1px solid #ddd; padding-top: 10px;">
+                <strong style="color: #34495e;">Expressions:</strong>
+            """
+            for exp_amz, translations in data['expressions'].items():
+                french_exp_translations = ", ".join(filter(None, translations['french_translations']))
+                arabic_exp_translations = ", ".join(filter(None, translations['arabic_translations']))
+
+                html_output += f"""
+                <div style="margin-top: 6px; padding-left: 15px; border-bottom: 1px solid #eee; padding-bottom: 8px; margin-bottom: 8px;">
+                    <div style="margin-bottom: 4px;">
+                        <strong style="color: #546e7a;">Amazigh:</strong>
+                        <span style="color: black;">{exp_amz or ''}</span>
+                    </div>
+                    """
+                if french_exp_translations:
+                    html_output += f"""
+                    <div style="margin-bottom: 4px;">
+                        <strong style="color: #546e7a;">French:</strong>
+                        <span style="color: black;">{french_exp_translations or ''}</span>
+                    </div>
+                    """
+                if arabic_exp_translations:
+                    html_output += f"""
+                    <div>
+                        <strong style="color: #546e7a;">Arabic:</strong>
+                        <span style="color: black;">{arabic_exp_translations or ''}</span>
+                    </div>
+                    """
+                html_output += "</div>"
+            html_output += "</div>"
+
+        html_output += "</div>"
+    return html_output
+
+def format_eng_results_aggregated(results):
+    """Formats aggregated results from eng.db."""
+    if not results:
+        return ""
+
+    aggregated_results = {}
+    for row in results:
+        lexie_id = row['id_lexie']
+        if lexie_id not in aggregated_results:
+            aggregated_results[lexie_id] = {
+                'lexie': row['lexie'],
+                'remarque': row['remarque'],
+                'variante': row['variante'],
+                'cg': row['cg'],
+                'eadata': row['eadata'],
+                'pldata': row['pldata'],
+                'acc': row['acc'],
+                'acc_neg': row['acc_neg'],
+                'inacc': row['inacc'],
+                'sens_eng': set()
+            }
+        if row['sens_eng']:  # Handle potential NULL values
+            aggregated_results[lexie_id]['sens_eng'].add(row['sens_eng'])
+
+    html_output = ""
+    for lexie_id, data in aggregated_results.items():
+        html_output += f"""
+        <div style="background: #d3f8d3; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #2ecc71; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{data['lexie'] or ''}</h3>
+                <span style="background: #2ecc71; color: white; padding: 4px 8px; border-radius: 4px;">{data['cg'] or ''}</span>
+            </div>
+        """
+
+        fields = {
+            'Notes': 'remarque',
+            'Construct State': 'eadata',
+            'Plural': 'pldata',
+            'Accomplished': 'acc',
+            'Negative Accomplished': 'acc_neg',
+            'Unaccomplished': 'inacc',
+            'Variants': 'variante',
+        }
+
+        for label, field in fields.items():
+            if data[field]:
+                html_output += f"""
+                <div style="margin-bottom: 8px;">
+                    <strong style="color: #34495e;">{label}:</strong>
+                    <span style="color: black;">{data[field]}</span>
+                </div>
+                """
+        english_translations = ", ".join(filter(None, data['sens_eng'])) # Handle null values
+
+        if english_translations:
+             html_output += f"""
+             <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">English Translation:</strong>
+                <span style="color: black;">{english_translations}</span>
+             </div>
+             """
+        html_output += "</div>"
+
+    return html_output
+
+
+def format_tawalt_fr_results_list(results):
+    """Formats list results from tawalt_fr.db."""
+    if not results:
+        return ""
+
+    html_output = ""
+    for row in results:
+        html_output += f"""
+        <div style="background: #ffe0b2; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ff9800; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{row['tifinagh'] or ''}</h3>
+            </div>
+        """
+        if row['french']:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">French:</strong>
+                <span style="color: black;">{row['french']}</span>
+            </div>
+            """
+        html_output += "</div>"
+
+    return html_output
+
+
+def format_tawalt_results_list(results):
+    """Formats list results from tawalt.db."""
+    if not results:
+        return ""
+
+    html_output = ""
+    for row in results:
+        html_output += f"""
+        <div style="background: #fffacd; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #3498db; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{row['tifinagh'] or ''}</h3>
+            </div>
+        """
+        if row['arabic']:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Arabic:</strong>
+                <span style="color: black;">{row['arabic']}</span>
+            </div>
+            """
+        if row['arabic_meaning']:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Arabic Meaning:</strong>
+                <span style="color: black;">{row['arabic_meaning']}</span>
+            </div>
+            """
+        html_output += "</div>"
+
+    return html_output
+
+
+def format_msmun_fr_m_results_list(results):
+    """Formats list results from msmun_fr.db table_m."""
+    if not results:
+        return ""
+
+    html_output = ""
+    for row in results:
+        html_output += f"""
+        <div style="background: #fce4ec; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #f06292; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{row['word'] or ''}</h3>
+            </div>
+        """
+        if row['result']:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">French Translation:</strong>
+                <span style="color: black;">{row['result']}</span>
+            </div>
+            """
+        if row['edited'] and row['edited'].lower() == 'true':
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Edited:</strong>
+                <span style="color: black;">Yes</span>
+            </div>
+            """
+        if row['favorites'] and row['favorites'].lower() == 'true':
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Favorites:</strong>
+                <span style="color: black;">Yes</span>
+            </div>
+            """
+        html_output += "</div>"
+    return html_output
+
+def format_msmun_fr_r_results_list(results):
+    """Formats list results from msmun_fr.db table_r."""
+    if not results:
+        return ""
+
+    html_output = ""
+    for row in results:
+        html_output += f"""
+        <div style="background: #f3e5f5; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #ab47bc; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{row['result'] or ''}</h3>
+            </div>
+        """
+        if row['result']:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Arabic Translation:</strong>
+                <span style="color: black;">{row['word']}</span>
+            </div>
+            """
+        if row['edited'] and row['edited'].lower() == 'true':
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Edited:</strong>
+                <span style="color: black;">Yes</span>
+            </div>
+            """
+        if row['favorites'] and row['favorites'].lower() == 'true':
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Favorites:</strong>
+                <span style="color: black;">Yes</span>
+            </div>
+            """
+        html_output += "</div>"
+    return html_output
+
+
+def format_msmun_ar_m_r_results_list(results):
+    """Formats list results from msmun_ar.db table_m_r."""
+    if not results:
+        return ""
+
+    html_output = ""
+    for row in results:
+        html_output += f"""
+        <div style="background: #e0f7fa; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #00bcd4; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{row['word'] or ''}</h3>
+            </div>
+        """
+        if row['result']:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Arabic Translation:</strong>
+                <span style="color: black;">{row['result']}</span>
+            </div>
+            """
+        if row['edited'] and row['edited'].lower() == 'true':
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Edited:</strong>
+                <span style="color: black;">Yes</span>
+            </div>
+            """
+        if row['favorites'] and row['favorites'].lower() == 'true':
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Favorites:</strong>
+                <span style="color: black;">Yes</span>
+            </div>
+            """
+        html_output += "</div>"
+    return html_output
+
+def format_msmun_ar_r_m_results_list(results):
+    """Formats list results from msmun_ar.db table_r_m."""
+    if not results:
+        return ""
+
+    html_output = ""
+    for row in results:
+        html_output += f"""
+        <div style="background: #e8f5e9; padding: 20px; margin: 10px 0; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1);">
+            <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #4caf50; padding-bottom: 10px; margin-bottom: 10px;">
+                <h3 style="color: #2c3e50; margin: 0;">{row['result'] or ''}</h3>
+            </div>
+        """
+        if row['result']:
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Arabic Translation:</strong>
+                <span style="color: black;">{row['word']}</span>
+            </div>
+            """
+        if row['edited'] and row['edited'].lower() == 'true':
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Edited:</strong>
+                <span style="color: black;">Yes</span>
+            </div>
+            """
+        if row['favorites'] and row['favorites'].lower() == 'true':
+            html_output += f"""
+            <div style="margin-bottom: 8px;">
+                <strong style="color: #34495e;">Favorites:</strong>
+                <span style="color: black;">Yes</span>
+            </div>
+            """
+        html_output += "</div>"
+    return html_output
+
+
+# Create Gradio interface (Remains the same)
+with gr.Blocks(css="footer {display: none !important}") as iface:
+    gr.HTML("""
+    <div style="text-align: center; margin-bottom: 2rem;">
+    <h1 style="color: #2c3e50; margin-bottom: 1rem;">Amazigh Dictionary</h1>
+    </div>
+    """)
+
+    with gr.Row():
+        input_text = gr.Textbox(
+            label="Search",
+            placeholder="Enter a word to search...",
+            lines=1
+        )
+
+    output_html = gr.HTML()
+
+    input_text.change(
+        fn=search_dictionary,
+        inputs=input_text,
+        outputs=output_html,
+        api_name="search"
+    )
+
+if __name__ == "__main__":
+    iface.launch()
