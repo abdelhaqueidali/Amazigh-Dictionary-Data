@@ -62,9 +62,40 @@ def normalize_amazigh_text(text):
 
 import re
 
-def search_dictionary(query):
+def search_dictionary(query, mode):
     if not query or len(query.strip()) < 1:
         return "Please enter a search term"
+
+    normalized_query_general = normalize_general_text(query)
+    normalized_query_amazigh = normalize_amazigh_text(query)
+
+    # Define search term format based on selected mode
+    if mode == "Contains":
+        search_term_general = f"%{normalized_query_general}%"
+        search_term_amazigh = f"%{normalized_query_amazigh}%"
+    elif mode == "Starts With":
+        search_term_general = f"{normalized_query_general}%"
+        search_term_amazigh = f"{normalized_query_amazigh}%"
+    elif mode == "Exact Word":
+        search_term_general = f"% {normalized_query_general} %"  # Ensuring word boundaries
+        search_term_amazigh = f"% {normalized_query_amazigh} %"
+    else:
+        search_term_general = f"%{normalized_query_general}%"
+        search_term_amazigh = f"%{normalized_query_amazigh}%"
+
+    # Call the existing database search functions with the new search terms
+    dglai14_results = search_dglai14(search_term_general, search_term_amazigh)
+    tawalt_fr_results = search_tawalt_fr(search_term_general, search_term_amazigh)
+    tawalt_results = search_tawalt(search_term_general, search_term_amazigh)
+    eng_results = search_eng(search_term_general, search_term_amazigh)
+    
+    # Combine results and format as HTML
+    html_output = format_dglai14_results(dglai14_results)
+    html_output += format_tawalt_fr_results(tawalt_fr_results)
+    html_output += format_tawalt_results(tawalt_results)
+    html_output += format_eng_results(eng_results)
+
+    return html_output if html_output else "No results found"
 
     normalized_query_general = normalize_general_text(query)
     start_search_term_general = f"{normalized_query_general}%"
@@ -1116,28 +1147,22 @@ def format_msmun_ar_r_m_results_list(results):
 
 
 # Create Gradio interface (Remains the same)
-with gr.Blocks(css="footer {display: none !important}") as iface:
-    gr.HTML("""
-    <div style="text-align: center; margin-bottom: 2rem;">
-    <h1 style="color: #2c3e50; margin-bottom: 1rem;">Amazigh Dictionary</h1>
-    </div>
-    """)
+with gr.Blocks() as iface:
+    gr.Markdown("## Amazigh Dictionary Search")
 
     with gr.Row():
-        input_text = gr.Textbox(
-            label="Search",
-            placeholder="Enter a word to search...",
-            lines=1
+        input_text = gr.Textbox(label="Search", placeholder="Enter a word...")
+        search_mode = gr.Dropdown(
+            label="Search Mode",
+            choices=["Contains", "Starts With", "Exact Word"],
+            value="Contains"
         )
 
     output_html = gr.HTML()
+    search_button = gr.Button("Search")
 
-    input_text.change(
-        fn=search_dictionary,
-        inputs=input_text,
-        outputs=output_html,
-        api_name="search"
-    )
+    # Update function call to pass mode selection
+    search_button.click(fn=search_dictionary, inputs=[input_text, search_mode], outputs=output_html)
 
 if __name__ == "__main__":
     iface.launch()
