@@ -951,7 +951,7 @@ with gr.Blocks(css="footer {display: none !important} .clickable-word:hover { ba
 
 
     # API endpoint for word click search
-    iface.load(None, None, None, _api_mode=True).then(
+    iface.load(None, None, None).then( # Removed _api_mode=True
         search_word_from_text,
         inputs=gr.JSON(label="Clicked Word"), # Expecting JSON input
         outputs=translation_output_area,
