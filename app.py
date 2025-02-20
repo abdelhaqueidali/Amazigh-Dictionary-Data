@@ -881,30 +881,83 @@ def format_msmun_ar_r_m_results(results):
         html_output += "</div>"
     return html_output
 
+def process_text_for_reading(text):
+    if not text:
+        return ""
+    words = text.split()
+    clickable_text = ""
+    for word in words:
+        clickable_text += f'<span class="clickable-word" style="cursor: pointer; margin-right: 5px;" onclick="searchWord(\'{word}\')">{word}</span> '
+    return clickable_text
 
-# Create Gradio interface (Remains the same)
-with gr.Blocks(css="footer {display: none !important}") as iface:
+def read_text_file(file):
+    try:
+        text = file.read().decode('utf-8')
+        return text
+    except Exception as e:
+        return f"Error reading file: {e}"
+
+def clear_text():
+    return ""
+
+def search_word_from_text(word):
+    return search_dictionary(word)
+
+with gr.Blocks(css="footer {display: none !important} .clickable-word:hover { background-color: #e0e0e0; }") as iface:
     gr.HTML("""
     <div style="text-align: center; margin-bottom: 2rem;">
-    <h1 style="color: #2c3e50; margin-bottom: 1rem;">Amazigh Dictionary</h1>
+    <h1 style="color: #2c3e50; margin-bottom: 1rem;">Amazigh Dictionary Text Reader</h1>
+    <p style="color: #777;">Click on a word in the text to see its translations.</p>
     </div>
+    <script>
+    function searchWord(word) {
+        fetch('/api/search_word_text', { // API endpoint for word click search
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({"data": [word]}) // Send word as data
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data && data.output) {
+                document.getElementById('translation-output').innerHTML = data.output.data; // Update translation output
+            } else {
+                document.getElementById('translation-output').innerHTML = "No translations found.";
+            }
+        });
+    }
+    </script>
     """)
 
     with gr.Row():
-        input_text = gr.Textbox(
-            label="Search",
-            placeholder="Enter a word to search...",
-            lines=1
-        )
+        with gr.Column(scale=2):
+            text_area = gr.TextArea(
+                label="Enter or Upload Text",
+                placeholder="Paste your text here or upload a file...",
+                lines=10
+            )
+            file_input = gr.File(label="Upload Text File", file_types=['.txt'])
+            read_mode_output = gr.HTML(label="Text in Read Mode", elem_id="read-mode-text")
 
-    output_html = gr.HTML()
+            with gr.Row():
+                read_button = gr.Button("Read Mode")
+                clear_button = gr.Button("Clear Text")
 
-    input_text.change(
-        fn=search_dictionary,
-        inputs=input_text,
-        outputs=output_html,
-        api_name="search"
+        with gr.Column(scale=1):
+            translation_output_area = gr.HTML(label="Translations", elem_id="translation-output")
+
+    file_input.upload(read_text_file, inputs=file_input, outputs=text_area)
+    read_button.click(process_text_for_reading, inputs=text_area, outputs=read_mode_output)
+    clear_button.click(clear_text, outputs=text_area)
+
+
+    # API endpoint for word click search
+    iface.load(None, None, None, _api_mode=True).then(
+        search_word_from_text,
+        inputs=gr.JSON(label="Clicked Word"), # Expecting JSON input
+        outputs=translation_output_area,
+        api_name="search_word_text" # API name for backend function
     )
+
 
 if __name__ == "__main__":
     iface.launch()
