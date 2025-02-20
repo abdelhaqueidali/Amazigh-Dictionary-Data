@@ -2,6 +2,17 @@ import gradio as gr
 import sqlite3
 from pathlib import Path
 import unicodedata
+import re
+
+def regexp(expr, item):
+    return bool(re.search(expr, item))
+
+def get_db_connection(db_name):
+    conn = sqlite3.connect(db_name)
+    conn.row_factory = sqlite3.Row
+    conn.create_function("REMOVE_DIACRITICS", 1, remove_diacritics)
+    conn.create_function("REGEXP", 2, regexp)  # Define REGEXP manually
+    return conn
 
 def remove_diacritics(text):
     """Removes diacritics from Arabic text (and any other text)."""
@@ -76,13 +87,15 @@ def search_dictionary(query, mode):
     elif mode == "Starts With":
         search_term_general = f"{normalized_query_general}%"
         search_term_amazigh = f"{normalized_query_amazigh}%"
-    elif mode == "Exact Word":
-        search_term_general = f"% {normalized_query_general} %"  # Ensuring word boundaries
-        search_term_amazigh = f"% {normalized_query_amazigh} %"
+   elif mode == "Exact Word":
+    search_term_general = f"%{normalized_query_general}%"
+    search_term_amazigh = f"%{normalized_query_amazigh}%"
+filtered_results = [row for row in results if re.search(rf'\b{re.escape(normalized_query_general)}\b', row['word'], re.IGNORECASE)]
+
     else:
         search_term_general = f"%{normalized_query_general}%"
         search_term_amazigh = f"%{normalized_query_amazigh}%"
-
+        
     # Call the existing database search functions with the new search terms
     dglai14_results = search_dglai14(search_term_general, search_term_amazigh)
     tawalt_fr_results = search_tawalt_fr(search_term_general, search_term_amazigh)
