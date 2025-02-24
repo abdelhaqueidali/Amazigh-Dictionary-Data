@@ -893,7 +893,7 @@ with gr.Blocks(css="footer {display: none !important}") as iface:
     with gr.Row():
         input_text = gr.Textbox(
             label="Search",
-            placeholder="Enter a word to search...",
+            placeholder="Enter a word to search... ⵜⴰⵎⴰⵣⵉⵖⵜ - عربية - English - Français",
             lines=1
         )
 
