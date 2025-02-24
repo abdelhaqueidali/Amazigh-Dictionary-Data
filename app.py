@@ -54,7 +54,7 @@ def normalize_amazigh_text(text):
 
 def search_dictionary(query):
     if not query or len(query.strip()) < 1:
-        return "Please enter a search term"
+        return "Please enter a search term in the following languages:<br>ⵜⴰⵎⴰⵣⵉⵖⵜ - عربية - English - Français"
 
     normalized_query_general = normalize_general_text(query)
     start_search_term_general = f"{normalized_query_general}%"
@@ -893,7 +893,7 @@ with gr.Blocks(css="footer {display: none !important}") as iface:
     with gr.Row():
         input_text = gr.Textbox(
             label="Search",
-            placeholder="Enter a word to search... ⵜⴰⵎⴰⵣⵉⵖⵜ - عربية - English - Français",
+            placeholder="Enter a word to search...",
             lines=1
         )
 
